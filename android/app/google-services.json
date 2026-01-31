@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "222820546219",
+    "project_id": "salespro-551da",
+    "storage_bucket": "salespro-551da.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:222820546219:android:194d95f9862572f20529ee",
+        "android_client_info": {
+          "package_name": "com.salespro.salespro"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDij_jMAt1V_74QCUhTv66n6H0dE-Jizpk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

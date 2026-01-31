@@ -13,6 +13,11 @@ dependencies:
   cupertino_icons: ^1.0.2
   intl:
   image_picker:
+  hive:
+  hive_flutter:
+  path_provider:
+  pdf:
+  printing:
 
 dev_dependencies:
   flutter_test:
