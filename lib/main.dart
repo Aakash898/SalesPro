@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:intl/intl.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
@@ -7,7 +8,6 @@ import 'package:path_provider/path_provider.dart' as path_provider;
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
-import 'package:flutter/rendering.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,31 +18,48 @@ void main() async {
   Hive.registerAdapter(PaymentAdapter());
   await Hive.openBox<Sale>('sales');
   await Hive.openBox<Payment>('payments');
-  runApp(SalesProApp());
+  runApp(const SalesProApp());
 }
 
-// Adapters for Hive
+// ──────────────────────────────────────────────
+// Hive Adapters
+// ──────────────────────────────────────────────
 class SaleAdapter extends TypeAdapter<Sale> {
   @override
   final typeId = 0;
 
   @override
   Sale read(BinaryReader reader) {
+    final id = reader.readString();
+    final customerName = reader.readString();
+    final shopName = reader.readString();
+    final phone = reader.readString();
+    final address = reader.readString();
+    final products = reader.readList().cast<Product>();
+    final totalAmount = reader.readDouble();
+    final paidAmount = reader.readDouble();
+    final pendingAmount = reader.readDouble();
+    final paymentMethod = reader.readString();
+    final date = DateTime.parse(reader.readString());
+    final status = reader.readString();
+    final notes = reader.readString();
+    final productImagePath = reader.readString();
+
     return Sale(
-      id: reader.readString(),
-      customerName: reader.readString(),
-      shopName: reader.readString(),
-      phone: reader.readString(),
-      address: reader.readString(),
-      products: reader.readList().cast<Product>(),
-      totalAmount: reader.readDouble(),
-      paidAmount: reader.readDouble(),
-      pendingAmount: reader.readDouble(),
-      paymentMethod: reader.readString(),
-      date: DateTime.parse(reader.readString()),
-      status: reader.readString(),
-      notes: reader.readString(),
-      productImagePath: reader.readString(),
+      id: id,
+      customerName: customerName,
+      shopName: shopName,
+      phone: phone,
+      address: address,
+      products: products,
+      totalAmount: totalAmount,
+      paidAmount: paidAmount,
+      pendingAmount: pendingAmount,
+      paymentMethod: paymentMethod,
+      date: date,
+      status: status,
+      notes: notes,
+      productImagePath: productImagePath.isEmpty ? null : productImagePath,
     );
   }
 
@@ -109,17 +126,15 @@ class PaymentAdapter extends TypeAdapter<Payment> {
   }
 }
 
+// ──────────────────────────────────────────────
 // Models
+// ──────────────────────────────────────────────
 class Product {
   String name;
   int quantity;
   double pricePerUnit;
 
-  Product({
-    required this.name,
-    required this.quantity,
-    required this.pricePerUnit,
-  });
+  Product({required this.name, required this.quantity, required this.pricePerUnit});
 }
 
 class Sale {
@@ -170,24 +185,28 @@ class Payment {
   });
 }
 
-// Language Manager and Translations (same as before)
-class AppLanguage extends ChangeNotifier {
-  String _currentLanguage = 'en'; // 'en' or 'hi'
+// ──────────────────────────────────────────────
+// App Manager (Language + Theme)
+// ──────────────────────────────────────────────
+class AppManager extends ChangeNotifier {
+  String _currentLanguage = 'en';
+  bool _isDark = true;
 
   String get currentLanguage => _currentLanguage;
-  bool get isHindi => _currentLanguage == 'hi';
-
-  void toggleLanguage() {
-    _currentLanguage = _currentLanguage == 'en' ? 'hi' : 'en';
-    notifyListeners();
-  }
+  bool get isDark => _isDark;
 
   void setLanguage(String lang) {
     _currentLanguage = lang;
     notifyListeners();
   }
+
+  void toggleTheme() {
+    _isDark = !_isDark;
+    notifyListeners();
+  }
 }
 
+// Translations
 class AppTranslations {
   static final Map<String, Map<String, String>> _translations = {
     'en': {
@@ -253,6 +272,10 @@ class AppTranslations {
       'payment_history': 'Payment History',
       'amount': 'Amount',
       'payment_added': 'Payment added successfully',
+      'theme': 'Theme',
+      'light': 'Light',
+      'dark': 'Dark',
+      'select_date': 'Select Date',
     },
     'hi': {
       'app_name': 'सेल्सप्रो',
@@ -317,6 +340,10 @@ class AppTranslations {
       'payment_history': 'भुगतान इतिहास',
       'amount': 'राशि',
       'payment_added': 'भुगतान सफलतापूर्वक जोड़ा गया',
+      'theme': 'थीम',
+      'light': 'लाइट',
+      'dark': 'डार्क',
+      'select_date': 'तारीख चुनें',
     },
   };
 
@@ -325,60 +352,94 @@ class AppTranslations {
   }
 }
 
-class SalesProApp extends StatefulWidget {
+// ──────────────────────────────────────────────
+// Main App Entry
+// ──────────────────────────────────────────────
+class SalesProApp extends StatelessWidget {
+  const SalesProApp({super.key});
+
   @override
-  _SalesProAppState createState() => _SalesProAppState();
+  Widget build(BuildContext context) {
+    return const SalesProAppContent();
+  }
 }
 
-class _SalesProAppState extends State<SalesProApp> {
-  final AppLanguage _appLanguage = AppLanguage();
+class SalesProAppContent extends StatefulWidget {
+  const SalesProAppContent({super.key});
+
+  @override
+  State<SalesProAppContent> createState() => _SalesProAppContentState();
+}
+
+class _SalesProAppContentState extends State<SalesProAppContent> {
+  final AppManager _appManager = AppManager();
 
   @override
   Widget build(BuildContext context) {
     return AnimatedBuilder(
-      animation: _appLanguage,
-      builder: (context, child) {
+      animation: _appManager,
+      builder: (context, _) {
         return MaterialApp(
-          title: AppTranslations.translate('app_name', _appLanguage.currentLanguage),
+          title: AppTranslations.translate('app_name', _appManager.currentLanguage),
           debugShowCheckedModeBanner: false,
-          theme: ThemeData.dark().copyWith(
-            primaryColor: Color(0xFF2563EB),
-            scaffoldBackgroundColor: Color(0xFF121212),
-            appBarTheme: AppBarTheme(
-              elevation: 0,
+          theme: _appManager.isDark
+              ? ThemeData.dark().copyWith(
+            primaryColor: const Color(0xFF2563EB),
+            scaffoldBackgroundColor: const Color(0xFF121212),
+            appBarTheme: const AppBarTheme(
               backgroundColor: Color(0xFF1E1E1E),
               foregroundColor: Colors.white,
+              elevation: 0,
             ),
             cardTheme: CardTheme(
+              color: const Color(0xFF1E1E1E),
               elevation: 2,
-              color: Color(0xFF1E1E1E),
-              shape: RoundedRectangleBorder(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
+            inputDecorationTheme: InputDecorationTheme(
+              filled: true,
+              fillColor: const Color(0xFF2A2A2A),
+              border: OutlineInputBorder(
+                borderSide: BorderSide.none,
                 borderRadius: BorderRadius.circular(12),
               ),
             ),
+          )
+              : ThemeData.light().copyWith(
+            primaryColor: const Color(0xFF2563EB),
+            scaffoldBackgroundColor: Colors.white,
+            appBarTheme: const AppBarTheme(
+              backgroundColor: Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+            cardTheme: CardTheme(
+              elevation: 4,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             inputDecorationTheme: InputDecorationTheme(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide.none,
-              ),
               filled: true,
-              fillColor: Color(0xFF2A2A2A),
+              fillColor: Colors.white,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
             ),
           ),
-          home: HomePage(appLanguage: _appLanguage),
+          home: HomePage(appManager: _appManager),
         );
       },
     );
   }
 }
 
+// ──────────────────────────────────────────────
+// Home Page (Main Screen)
+// ──────────────────────────────────────────────
 class HomePage extends StatefulWidget {
-  final AppLanguage appLanguage;
+  final AppManager appManager;
 
-  HomePage({required this.appLanguage});
+  const HomePage({super.key, required this.appManager});
 
   @override
-  _HomePageState createState() => _HomePageState();
+  State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
@@ -387,268 +448,202 @@ class _HomePageState extends State<HomePage> {
   DateTime _currentMonth = DateTime.now();
   String searchQuery = '';
   String filterStatus = 'all';
+
   late ScrollController _scrollController;
-  bool _showFab = true;
+  bool _isFabVisible = true;
 
   @override
   void initState() {
     super.initState();
-    if (_salesBox.isEmpty) {
-      _loadDemoData();
-    }
     _scrollController = ScrollController();
     _scrollController.addListener(() {
       if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
-        if (_showFab) setState(() => _showFab = false);
-      } else {
-        if (!_showFab) setState(() => _showFab = true);
+        if (_isFabVisible) setState(() => _isFabVisible = false);
+      }
+      if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+        if (!_isFabVisible) setState(() => _isFabVisible = true);
       }
     });
   }
 
-  String t(String key) {
-    return AppTranslations.translate(key, widget.appLanguage.currentLanguage);
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
   }
 
-  void _loadDemoData() {
-    final demoSale = Sale(
-      id: '1',
-      customerName: 'Rajesh Kumar',
-      shopName: 'Kumar General Store',
-      phone: '9876543210',
-      address: 'Main Market, Ludhiana',
-      products: [Product(name: 'Rice Bags (25kg)', quantity: 50, pricePerUnit: 1200)],
-      totalAmount: 60000,
-      paidAmount: 40000,
-      pendingAmount: 20000,
-      paymentMethod: 'Cash',
-      date: DateTime.now().subtract(Duration(days: 8)),
-      status: 'pending',
-      notes: 'Delivery completed',
-      productImagePath: null,
-    );
-    _salesBox.add(demoSale);
-    // Add more if needed
-  }
+  String t(String key) => AppTranslations.translate(key, widget.appManager.currentLanguage);
 
   void _changeMonth(int delta) {
     setState(() {
-      _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
+      _currentMonth = DateTime(
+        _currentMonth.year,
+        _currentMonth.month + delta,
+      );
     });
   }
 
-  List<Sale> get _monthlySales {
+  List<Sale> get filteredMonthlySales {
     return _salesBox.values.where((sale) {
-      return sale.date.year == _currentMonth.year &&
-          sale.date.month == _currentMonth.month &&
-          (searchQuery.isEmpty ||
-              sale.customerName.toLowerCase().contains(searchQuery.toLowerCase()) ||
-              sale.shopName.toLowerCase().contains(searchQuery.toLowerCase()) ||
-              sale.products.any((p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()))) &&
-          (filterStatus == 'all' || sale.status == filterStatus);
-    }).toList()..sort((a, b) => b.date.compareTo(a.date));
+      final matchesMonth = sale.date.year == _currentMonth.year && sale.date.month == _currentMonth.month;
+      final matchesSearch = searchQuery.isEmpty ||
+          sale.customerName.toLowerCase().contains(searchQuery.toLowerCase()) ||
+          sale.shopName.toLowerCase().contains(searchQuery.toLowerCase()) ||
+          sale.products.any((p) => p.name.toLowerCase().contains(searchQuery.toLowerCase()));
+      final matchesFilter = filterStatus == 'all' || sale.status == filterStatus;
+
+      return matchesMonth && matchesSearch && matchesFilter;
+    }).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
-  Map<DateTime, List<Sale>> get _groupedByDay {
+  Map<DateTime, List<Sale>> get groupedByDay {
     final map = <DateTime, List<Sale>>{};
-    for (var sale in _monthlySales) {
+    for (var sale in filteredMonthlySales) {
       final day = DateTime(sale.date.year, sale.date.month, sale.date.day);
       map.putIfAbsent(day, () => []).add(sale);
     }
     return map;
   }
 
-  void _addSale(Sale sale) {
-    _salesBox.add(sale);
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('sale_added'))));
-  }
-
-  void _updateSale(Sale updatedSale) {
-    final key = _salesBox.keys.firstWhere((k) => _salesBox.get(k)!.id == updatedSale.id);
-    _salesBox.put(key, updatedSale);
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('sale_updated'))));
-  }
-
-  void _deleteSale(String id) {
-    final key = _salesBox.keys.firstWhere((k) => _salesBox.get(k)!.id == id);
-    _salesBox.delete(key);
-    // Delete associated payments
-    _paymentsBox.values.where((p) => p.saleId == id).forEach((p) {
-      final pKey = _paymentsBox.keys.firstWhere((k) => _paymentsBox.get(k) == p);
-      _paymentsBox.delete(pKey);
-    });
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('sale_deleted'))));
-  }
-
-  void _addPayment(Payment payment) {
-    _paymentsBox.add(payment);
-    // Update sale pending
-    final saleKey = _salesBox.keys.firstWhere((k) => _salesBox.get(k)!.id == payment.saleId);
-    final sale = _salesBox.get(saleKey)!;
-    sale.paidAmount += payment.amount;
-    sale.pendingAmount -= payment.amount;
-    sale.status = sale.pendingAmount <= 0 ? 'paid' : 'pending';
-    _salesBox.put(saleKey, sale);
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t('payment_added'))));
-  }
-
-  List<Payment> _getPaymentsForSale(String saleId) {
-    return _paymentsBox.values.where((p) => p.saleId == saleId).toList()..sort((a, b) => b.date.compareTo(a.date));
-  }
-
-  double _getTotalSalesThisMonth() {
-    return _monthlySales.fold(0, (sum, sale) => sum + sale.totalAmount);
-  }
-
-  double _getTotalPaidThisMonth() {
-    return _monthlySales.fold(0, (sum, sale) => sum + sale.paidAmount);
-  }
-
-  double _getTotalPendingOverall() {
-    return _salesBox.values.fold(0, (sum, sale) => sum + sale.pendingAmount);
-  }
-
-  void _showLanguageDialog() {
-    // same as before
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1E1E1E),
-        title: Text(t('language')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Radio<String>(
-                value: 'en',
-                groupValue: widget.appLanguage.currentLanguage,
-                onChanged: (value) {
-                  widget.appLanguage.setLanguage('en');
-                  Navigator.pop(context);
-                },
-              ),
-              title: Text('English'),
-              onTap: () {
-                widget.appLanguage.setLanguage('en');
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              leading: Radio<String>(
-                value: 'hi',
-                groupValue: widget.appLanguage.currentLanguage,
-                onChanged: (value) {
-                  widget.appLanguage.setLanguage('hi');
-                  Navigator.pop(context);
-                },
-              ),
-              title: Text('हिंदी'),
-              onTap: () {
-                widget.appLanguage.setLanguage('hi');
-                Navigator.pop(context);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  double get totalSalesThisMonth => filteredMonthlySales.fold(0.0, (sum, s) => sum + s.totalAmount);
+  double get totalPaidThisMonth => filteredMonthlySales.fold(0.0, (sum, s) => sum + s.paidAmount);
+  double get totalPendingOverall => _salesBox.values.fold(0.0, (sum, s) => sum + s.pendingAmount);
 
   @override
   Widget build(BuildContext context) {
-    final grouped = _groupedByDay;
+    final grouped = groupedByDay;
 
     return Scaffold(
       appBar: AppBar(
         title: Row(
           children: [
-            Icon(Icons.shopping_bag, size: 28),
-            SizedBox(width: 8),
-            Text(t('app_name'), style: TextStyle(fontWeight: FontWeight.bold)),
+            const Icon(Icons.shopping_bag_outlined),
+            const SizedBox(width: 8),
+            Text(t('app_name')),
           ],
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.language),
-            onPressed: _showLanguageDialog,
-            tooltip: t('language'),
+            icon: Icon(widget.appManager.isDark ? Icons.light_mode : Icons.dark_mode),
+            onPressed: widget.appManager.toggleTheme,
+            tooltip: t('theme'),
           ),
           IconButton(
-            icon: Icon(Icons.history),
+            icon: const Icon(Icons.language),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) {
+                  return AlertDialog(
+                    title: Text(t('language')),
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          title: const Text('English'),
+                          leading: Radio<String>(
+                            value: 'en',
+                            groupValue: widget.appManager.currentLanguage,
+                            onChanged: (v) {
+                              widget.appManager.setLanguage('en');
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                        ListTile(
+                          title: const Text('हिंदी'),
+                          leading: Radio<String>(
+                            value: 'hi',
+                            groupValue: widget.appManager.currentLanguage,
+                            onChanged: (v) {
+                              widget.appManager.setLanguage('hi');
+                              Navigator.pop(context);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.history),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => HistoryPage(
+                  builder: (_) => HistoryPage(
                     sales: _salesBox.values.toList(),
-                    appLanguage: widget.appLanguage,
+                    appManager: widget.appManager,
                   ),
                 ),
               );
             },
-            tooltip: t('history'),
           ),
         ],
       ),
       body: Column(
         children: [
+          // Month Navigation + Summary
           Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16.0),
             child: Column(
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     IconButton(
-                      icon: Icon(Icons.chevron_left, color: Colors.white),
+                      icon: const Icon(Icons.chevron_left),
                       onPressed: () => _changeMonth(-1),
                     ),
                     Text(
-                      DateFormat('MMMM, yyyy').format(_currentMonth),
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      DateFormat('MMMM yyyy').format(_currentMonth),
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                     ),
                     IconButton(
-                      icon: Icon(Icons.chevron_right, color: Colors.white),
+                      icon: const Icon(Icons.chevron_right),
                       onPressed: () => _changeMonth(1),
                     ),
                   ],
                 ),
-                SizedBox(height: 16),
+                const SizedBox(height: 16),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: [
-                    _buildSummaryItem(t('total_sales'), _getTotalSalesThisMonth(), Colors.green),
-                    _buildSummaryItem(t('paid'), _getTotalPaidThisMonth(), Colors.blue),
-                    _buildSummaryItem(t('pending'), _getTotalPendingOverall(), Colors.orange),
+                    _buildSummaryCard(t('total_sales'), totalSalesThisMonth, Colors.green),
+                    _buildSummaryCard(t('paid'), totalPaidThisMonth, Colors.blue),
+                    _buildSummaryCard(t('pending'), totalPendingOverall, Colors.orange),
                   ],
                 ),
               ],
             ),
           ),
+
+          // Search + Filter
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
             child: Row(
               children: [
                 Expanded(
                   child: TextField(
-                    style: TextStyle(color: Colors.white),
+                    onChanged: (value) => setState(() => searchQuery = value.toLowerCase()),
                     decoration: InputDecoration(
                       hintText: t('search_hint'),
-                      hintStyle: TextStyle(color: Colors.grey),
-                      prefixIcon: Icon(Icons.search, color: Colors.grey),
-                      contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        borderSide: BorderSide.none,
+                      ),
+                      filled: true,
                     ),
-                    onChanged: (value) => setState(() => searchQuery = value),
                   ),
                 ),
-                SizedBox(width: 8),
+                const SizedBox(width: 12),
                 PopupMenuButton<String>(
-                  color: Color(0xFF1E1E1E),
-                  icon: Icon(Icons.filter_list, color: Colors.white),
+                  icon: const Icon(Icons.filter_list),
                   onSelected: (value) => setState(() => filterStatus = value),
                   itemBuilder: (context) => [
                     PopupMenuItem(value: 'all', child: Text(t('all_sales'))),
@@ -659,19 +654,19 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          SizedBox(height: 16),
+
+          const SizedBox(height: 8),
+
+          // Sales List
           Expanded(
             child: grouped.isEmpty
                 ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text(
-                    t('no_sales'),
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
+                  Icon(Icons.inventory_2_outlined, size: 80, color: Colors.grey[400]),
+                  const SizedBox(height: 16),
+                  Text(t('no_sales'), style: const TextStyle(fontSize: 18, color: Colors.grey)),
                 ],
               ),
             )
@@ -679,16 +674,17 @@ class _HomePageState extends State<HomePage> {
               controller: _scrollController,
               itemCount: grouped.length,
               itemBuilder: (context, index) {
-                final day = grouped.keys.elementAt(index);
-                final daySales = grouped[day]!;
+                final dayKey = grouped.keys.elementAt(index);
+                final daySales = grouped[dayKey]!;
+
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Padding(
-                      padding: EdgeInsets.fromLTRB(16, 16, 16, 8),
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
                       child: Text(
-                        DateFormat('MMM dd, EEEE').format(day),
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white70),
+                        DateFormat('dd MMM, EEEE').format(dayKey),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                       ),
                     ),
                     ...daySales.map((sale) => _buildSaleCard(sale)),
@@ -699,38 +695,37 @@ class _HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      floatingActionButton: _showFab
+      floatingActionButton: _isFabVisible
           ? FloatingActionButton.extended(
         onPressed: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => AddEditSalePage(
-                onSave: _addSale,
-                appLanguage: widget.appLanguage,
+              builder: (_) => AddEditSalePage(
+                onSave: (sale) {
+                  _salesBox.add(sale);
+                  setState(() {});
+                },
+                appManager: widget.appManager,
               ),
             ),
           );
         },
-        icon: Icon(Icons.add),
+        icon: const Icon(Icons.add),
         label: Text(t('add_sale')),
-        backgroundColor: Color(0xFF2563EB),
       )
           : null,
     );
   }
 
-  Widget _buildSummaryItem(String title, double value, Color color) {
+  Widget _buildSummaryCard(String title, double value, Color color) {
     return Column(
       children: [
-        Text(
-          title,
-          style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.w500),
-        ),
-        SizedBox(height: 4),
+        Text(title, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+        const SizedBox(height: 6),
         Text(
           '₹${value.toStringAsFixed(0)}',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+          style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: color),
         ),
       ],
     );
@@ -738,86 +733,44 @@ class _HomePageState extends State<HomePage> {
 
   Widget _buildSaleCard(Sale sale) {
     return Card(
-      margin: EdgeInsets.only(bottom: 12, left: 16, right: 16),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: InkWell(
         onTap: () {
           Navigator.push(
             context,
             MaterialPageRoute(
-              builder: (context) => SaleDetailPage(
+              builder: (_) => SaleDetailPage(
                 sale: sale,
-                onUpdate: _updateSale,
-                onDelete: _deleteSale,
-                onAddPayment: _addPayment,
-                payments: _getPaymentsForSale(sale.id),
-                appLanguage: widget.appLanguage,
+                onUpdate: (updated) {
+                  final key = _salesBox.keys.firstWhere((k) => _salesBox.get(k)!.id == updated.id);
+                  _salesBox.put(key, updated);
+                  setState(() {});
+                },
+                onDelete: (id) {
+                  final key = _salesBox.keys.firstWhere((k) => _salesBox.get(k)!.id == id);
+                  _salesBox.delete(key);
+                  setState(() {});
+                },
+                onAddPayment: (payment) {
+                  _paymentsBox.add(payment);
+                  final saleKey = _salesBox.keys.firstWhere((k) => _salesBox.get(k)!.id == payment.saleId);
+                  final s = _salesBox.get(saleKey)!;
+                  s.paidAmount += payment.amount;
+                  s.pendingAmount -= payment.amount;
+                  s.status = s.pendingAmount <= 0 ? 'paid' : 'pending';
+                  _salesBox.put(saleKey, s);
+                  setState(() {});
+                },
+                appManager: widget.appManager,
               ),
             ),
           );
         },
-        borderRadius: BorderRadius.circular(12),
         child: Padding(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          sale.customerName,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                        SizedBox(height: 4),
-                        Text(
-                          sale.shopName,
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey[400],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: sale.status == 'paid' ? Colors.green[900] : Colors.orange[900],
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      sale.status == 'paid' ? t('paid') : t('pending'),
-                      style: TextStyle(
-                        color: sale.status == 'paid' ? Colors.green[300] : Colors.orange[300],
-                        fontWeight: FontWeight.w600,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              Divider(height: 24, color: Colors.grey[800]),
-              Row(
-                children: [
-                  Icon(Icons.shopping_cart, size: 16, color: Colors.grey[400]),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      sale.products.map((p) => p.name).join(', '),
-                      style: TextStyle(fontSize: 14, color: Colors.white70),
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: 8),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -825,16 +778,45 @@ class _HomePageState extends State<HomePage> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        t('total_amount'),
-                        style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                        sale.customerName,
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        sale.shopName,
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: sale.status == 'paid' ? Colors.green[700] : Colors.orange[700],
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      sale.status == 'paid' ? t('paid') : t('pending'),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12),
+                    ),
+                  ),
+                ],
+              ),
+              const Divider(height: 24),
+              Text(
+                sale.products.map((p) => '${p.name} (${p.quantity})').join(', '),
+                style: const TextStyle(fontSize: 14),
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(t('total_amount'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                       Text(
                         '₹${sale.totalAmount.toStringAsFixed(0)}',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[300],
-                        ),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
                       ),
                     ],
                   ),
@@ -842,26 +824,19 @@ class _HomePageState extends State<HomePage> {
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text(
-                          t('pending'),
-                          style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                        ),
+                        Text(t('pending'), style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                         Text(
                           '₹${sale.pendingAmount.toStringAsFixed(0)}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.orange[300],
-                          ),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.orange),
                         ),
                       ],
                     ),
                 ],
               ),
-              SizedBox(height: 8),
+              const SizedBox(height: 8),
               Text(
                 DateFormat('dd MMM yyyy').format(sale.date),
-                style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+                style: TextStyle(fontSize: 12, color: Colors.grey[600]),
               ),
             ],
           ),
@@ -871,54 +846,89 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-// Add Edit Sale Page (updated for multiple products)
+// ──────────────────────────────────────────────
+// Add / Edit Sale Page (with Date Picker)
+// ──────────────────────────────────────────────
 class AddEditSalePage extends StatefulWidget {
   final Sale? sale;
   final Function(Sale) onSave;
-  final AppLanguage appLanguage;
+  final AppManager appManager;
 
-  AddEditSalePage({this.sale, required this.onSave, required this.appLanguage});
+  const AddEditSalePage({
+    super.key,
+    this.sale,
+    required this.onSave,
+    required this.appManager,
+  });
 
   @override
-  _AddEditSalePageState createState() => _AddEditSalePageState();
+  State<AddEditSalePage> createState() => _AddEditSalePageState();
 }
 
 class _AddEditSalePageState extends State<AddEditSalePage> {
   final _formKey = GlobalKey<FormState>();
-  late TextEditingController _customerNameController;
-  late TextEditingController _shopNameController;
-  late TextEditingController _phoneController;
-  late TextEditingController _addressController;
-  late TextEditingController _paidController;
-  late TextEditingController _notesController;
+
+  late TextEditingController _customerNameCtrl;
+  late TextEditingController _shopNameCtrl;
+  late TextEditingController _phoneCtrl;
+  late TextEditingController _addressCtrl;
+  late TextEditingController _paidCtrl;
+  late TextEditingController _notesCtrl;
 
   List<Product> _products = [];
   String _paymentMethod = 'Cash';
-  File? _productImage;
+  File? _imageFile;
+  DateTime _selectedDate = DateTime.now();
+
   final ImagePicker _picker = ImagePicker();
 
   @override
   void initState() {
     super.initState();
-    _customerNameController = TextEditingController(text: widget.sale?.customerName ?? '');
-    _shopNameController = TextEditingController(text: widget.sale?.shopName ?? '');
-    _phoneController = TextEditingController(text: widget.sale?.phone ?? '');
-    _addressController = TextEditingController(text: widget.sale?.address ?? '');
-    _paidController = TextEditingController(text: widget.sale?.paidAmount.toString() ?? '');
-    _notesController = TextEditingController(text: widget.sale?.notes ?? '');
+    _customerNameCtrl = TextEditingController(text: widget.sale?.customerName);
+    _shopNameCtrl = TextEditingController(text: widget.sale?.shopName);
+    _phoneCtrl = TextEditingController(text: widget.sale?.phone);
+    _addressCtrl = TextEditingController(text: widget.sale?.address);
+    _paidCtrl = TextEditingController(text: widget.sale?.paidAmount.toStringAsFixed(0) ?? '0');
+    _notesCtrl = TextEditingController(text: widget.sale?.notes);
+
     _paymentMethod = widget.sale?.paymentMethod ?? 'Cash';
-    if (widget.sale != null) {
-      _products = widget.sale!.products;
-    } else {
-      _products.add(Product(name: '', quantity: 0, pricePerUnit: 0));
+    _products = widget.sale?.products ?? [];
+    _selectedDate = widget.sale?.date ?? DateTime.now();
+
+    if (widget.sale?.productImagePath != null && widget.sale!.productImagePath!.isNotEmpty) {
+      _imageFile = File(widget.sale!.productImagePath!);
     }
-    if (widget.sale?.productImagePath != null) {
-      _productImage = File(widget.sale!.productImagePath!);
+
+    // Add at least one product field if empty
+    if (_products.isEmpty) {
+      _products.add(Product(name: '', quantity: 0, pricePerUnit: 0));
     }
   }
 
-  String t(String key) {
-    return AppTranslations.translate(key, widget.appLanguage.currentLanguage);
+  String t(String key) => AppTranslations.translate(key, widget.appManager.currentLanguage);
+
+  Future<void> _pickDate() async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2030),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _pickImage() async {
+    final XFile? file = await _picker.pickImage(source: ImageSource.gallery);
+    if (file != null) {
+      setState(() {
+        _imageFile = File(file.path);
+      });
+    }
   }
 
   void _addProduct() {
@@ -928,77 +938,43 @@ class _AddEditSalePageState extends State<AddEditSalePage> {
   }
 
   void _removeProduct(int index) {
-    setState(() {
-      _products.removeAt(index);
-    });
-  }
-
-  Future<void> _pickImage(ImageSource source) async {
-    final XFile? image = await _picker.pickImage(source: source);
-    if (image != null) {
+    if (_products.length > 1) {
       setState(() {
-        _productImage = File(image.path);
+        _products.removeAt(index);
       });
     }
   }
 
-  void _showImageSourceDialog() {
-    // same as before
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Color(0xFF1E1E1E),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: Icon(Icons.camera_alt),
-              title: Text(t('from_camera')),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.camera);
-              },
-            ),
-            ListTile(
-              leading: Icon(Icons.photo_library),
-              title: Text(t('from_gallery')),
-              onTap: () {
-                Navigator.pop(context);
-                _pickImage(ImageSource.gallery);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   void _saveSale() {
-    if (_formKey.currentState!.validate() && _products.every((p) => p.name.isNotEmpty && p.quantity > 0 && p.pricePerUnit > 0)) {
-      double totalAmount = _products.fold(0, (sum, p) => sum + p.quantity * p.pricePerUnit);
-      double paidAmount = double.tryParse(_paidController.text) ?? 0;
-      double pendingAmount = totalAmount - paidAmount;
+    if (!_formKey.currentState!.validate()) return;
 
-      Sale newSale = Sale(
-        id: widget.sale?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-        customerName: _customerNameController.text,
-        shopName: _shopNameController.text,
-        phone: _phoneController.text,
-        address: _addressController.text,
-        products: _products,
-        totalAmount: totalAmount,
-        paidAmount: paidAmount,
-        pendingAmount: pendingAmount,
-        paymentMethod: _paymentMethod,
-        date: widget.sale?.date ?? DateTime.now(),
-        status: pendingAmount <= 0 ? 'paid' : 'pending',
-        notes: _notesController.text,
-        productImagePath: _productImage?.path ?? widget.sale?.productImagePath,
-      );
-
-      widget.onSave(newSale);
-      Navigator.pop(context);
+    double total = 0;
+    for (var p in _products) {
+      total += p.quantity * p.pricePerUnit;
     }
+
+    double paid = double.tryParse(_paidCtrl.text) ?? 0;
+    double pending = total - paid;
+
+    final sale = Sale(
+      id: widget.sale?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      customerName: _customerNameCtrl.text.trim(),
+      shopName: _shopNameCtrl.text.trim(),
+      phone: _phoneCtrl.text.trim(),
+      address: _addressCtrl.text.trim(),
+      products: _products.where((p) => p.name.trim().isNotEmpty).toList(),
+      totalAmount: total,
+      paidAmount: paid,
+      pendingAmount: pending,
+      paymentMethod: _paymentMethod,
+      date: _selectedDate,
+      status: pending <= 0 ? 'paid' : 'pending',
+      notes: _notesCtrl.text.trim(),
+      productImagePath: _imageFile?.path,
+    );
+
+    widget.onSave(sale);
+    Navigator.pop(context);
   }
 
   @override
@@ -1010,192 +986,172 @@ class _AddEditSalePageState extends State<AddEditSalePage> {
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: EdgeInsets.all(16),
+          padding: const EdgeInsets.all(16),
           children: [
-            Text(
-              t('customer_info'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300]),
+            // Date Picker
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.calendar_today),
+                title: Text(t('select_date')),
+                subtitle: Text(DateFormat('dd MMM yyyy').format(_selectedDate)),
+                trailing: const Icon(Icons.edit_calendar),
+                onTap: _pickDate,
+              ),
             ),
-            SizedBox(height: 16),
+
+            const SizedBox(height: 16),
+
+            // Customer Info
+            Text(t('customer_info'), style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
             TextFormField(
-              controller: _customerNameController,
-              decoration: InputDecoration(labelText: t('customer_name'), prefixIcon: Icon(Icons.person)),
-              validator: (value) => value!.isEmpty ? t('required_field') : null,
+              controller: _customerNameCtrl,
+              decoration: InputDecoration(labelText: t('customer_name')),
+              validator: (v) => v!.trim().isEmpty ? t('required_field') : null,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextFormField(
-              controller: _shopNameController,
-              decoration: InputDecoration(labelText: t('shop_name'), prefixIcon: Icon(Icons.store)),
-              validator: (value) => value!.isEmpty ? t('required_field') : null,
+              controller: _shopNameCtrl,
+              decoration: InputDecoration(labelText: t('shop_name')),
+              validator: (v) => v!.trim().isEmpty ? t('required_field') : null,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextFormField(
-              controller: _phoneController,
-              decoration: InputDecoration(labelText: t('phone'), prefixIcon: Icon(Icons.phone)),
+              controller: _phoneCtrl,
+              decoration: InputDecoration(labelText: t('phone')),
               keyboardType: TextInputType.phone,
-              validator: (value) => value!.isEmpty ? t('required_field') : (value.length != 10 ? t('invalid_phone') : null),
+              validator: (v) => v!.length != 10 ? t('invalid_phone') : null,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextFormField(
-              controller: _addressController,
-              decoration: InputDecoration(labelText: t('address'), prefixIcon: Icon(Icons.location_on)),
+              controller: _addressCtrl,
+              decoration: InputDecoration(labelText: t('address')),
               maxLines: 2,
-              validator: (value) => value!.isEmpty ? t('required_field') : null,
             ),
-            SizedBox(height: 24),
-            Divider(color: Colors.grey[800]),
-            SizedBox(height: 24),
-            Text(
-              t('product_info'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300]),
-            ),
-            SizedBox(height: 16),
-            ..._products.asMap().entries.map((entry) {
-              int idx = entry.key;
-              Product p = entry.value;
+
+            const Divider(height: 32),
+
+            // Products Section
+            Text(t('product_info'), style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
+            ...List.generate(_products.length, (index) {
+              final p = _products[index];
               return Column(
                 children: [
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
+                        flex: 3,
                         child: TextFormField(
                           initialValue: p.name,
-                          decoration: InputDecoration(labelText: '${t('product_name')} ${idx + 1}'),
+                          decoration: InputDecoration(labelText: '${t('product_name')} ${index + 1}'),
                           onChanged: (v) => p.name = v,
-                          validator: (v) => v!.isEmpty ? t('required_field') : null,
+                          validator: (v) => v!.trim().isEmpty ? t('required_field') : null,
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.remove_circle),
-                        onPressed: _products.length > 1 ? () => _removeProduct(idx) : null,
-                      ),
-                    ],
-                  ),
-                  SizedBox(height: 8),
-                  Row(
-                    children: [
+                      const SizedBox(width: 12),
                       Expanded(
                         child: TextFormField(
-                          initialValue: p.quantity.toString(),
+                          initialValue: p.quantity > 0 ? p.quantity.toString() : '',
                           decoration: InputDecoration(labelText: t('quantity')),
                           keyboardType: TextInputType.number,
                           onChanged: (v) => p.quantity = int.tryParse(v) ?? 0,
                           validator: (v) => v!.isEmpty ? t('required_field') : null,
                         ),
                       ),
-                      SizedBox(width: 16),
+                      const SizedBox(width: 12),
                       Expanded(
                         child: TextFormField(
-                          initialValue: p.pricePerUnit.toString(),
+                          initialValue: p.pricePerUnit > 0 ? p.pricePerUnit.toStringAsFixed(0) : '',
                           decoration: InputDecoration(labelText: t('price_per_unit')),
                           keyboardType: TextInputType.number,
                           onChanged: (v) => p.pricePerUnit = double.tryParse(v) ?? 0,
                           validator: (v) => v!.isEmpty ? t('required_field') : null,
                         ),
                       ),
+                      IconButton(
+                        icon: const Icon(Icons.delete_outline, color: Colors.red),
+                        onPressed: () => _removeProduct(index),
+                      ),
                     ],
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                 ],
               );
             }),
-            ElevatedButton.icon(
+
+            OutlinedButton.icon(
               onPressed: _addProduct,
-              icon: Icon(Icons.add),
+              icon: const Icon(Icons.add),
               label: Text(t('add_product')),
             ),
-            SizedBox(height: 24),
-            // Image section same as before
-            Card(
-              child: Padding(
-                padding: EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t('product_image'),
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: Colors.white),
-                    ),
-                    SizedBox(height: 12),
-                    if (_productImage != null)
-                      Stack(
-                        children: [
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(8),
-                            child: Image.file(_productImage!, height: 200, width: double.infinity, fit: BoxFit.cover),
-                          ),
-                          Positioned(
-                            top: 8,
-                            right: 8,
-                            child: IconButton(
-                              icon: Icon(Icons.close, color: Colors.white),
-                              onPressed: () => setState(() => _productImage = null),
-                            ),
-                          ),
-                        ],
-                      ),
-                    SizedBox(height: 12),
-                    ElevatedButton.icon(
-                      onPressed: _showImageSourceDialog,
-                      icon: Icon(Icons.add_photo_alternate),
-                      label: Text(_productImage == null ? t('add_image') : t('change_image')),
-                      style: ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 48)),
-                    ),
-                  ],
-                ),
+
+            const Divider(height: 32),
+
+            // Image Picker
+            if (_imageFile != null) ...[
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.file(_imageFile!, height: 180, fit: BoxFit.cover),
               ),
+              const SizedBox(height: 12),
+            ],
+            OutlinedButton.icon(
+              onPressed: _pickImage,
+              icon: const Icon(Icons.image),
+              label: Text(_imageFile == null ? t('add_image') : t('change_image')),
             ),
-            SizedBox(height: 24),
-            Divider(color: Colors.grey[800]),
-            SizedBox(height: 24),
-            Text(
-              t('payment_info'),
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300]),
-            ),
-            SizedBox(height: 16),
+
+            const Divider(height: 32),
+
+            // Payment Info
+            Text(t('payment_info'), style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 12),
             TextFormField(
-              controller: _paidController,
-              decoration: InputDecoration(labelText: t('paid_amount'), prefixIcon: Icon(Icons.payment)),
+              controller: _paidCtrl,
+              decoration: InputDecoration(labelText: t('paid_amount')),
               keyboardType: TextInputType.number,
-              validator: (value) => value!.isEmpty ? t('required_field') : null,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               value: _paymentMethod,
-              decoration: InputDecoration(labelText: t('payment_method'), prefixIcon: Icon(Icons.account_balance_wallet)),
-              items: [
-                DropdownMenuItem(value: 'Cash', child: Text(t('cash'))),
-                DropdownMenuItem(value: 'Online', child: Text(t('online'))),
-                DropdownMenuItem(value: 'Cheque', child: Text(t('cheque'))),
-              ],
-              onChanged: (value) => setState(() => _paymentMethod = value!),
+              decoration: InputDecoration(labelText: t('payment_method')),
+              items: ['Cash', 'Online', 'Cheque']
+                  .map((method) => DropdownMenuItem(
+                value: method,
+                child: Text(t(method.toLowerCase())),
+              ))
+                  .toList(),
+              onChanged: (v) => setState(() => _paymentMethod = v!),
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 12),
             TextFormField(
-              controller: _notesController,
-              decoration: InputDecoration(labelText: t('notes'), prefixIcon: Icon(Icons.note)),
+              controller: _notesCtrl,
+              decoration: InputDecoration(labelText: t('notes')),
               maxLines: 3,
             ),
-            SizedBox(height: 32),
+
+            const SizedBox(height: 40),
+
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.pop(context),
                     child: Text(t('cancel')),
-                    style: OutlinedButton.styleFrom(minimumSize: Size(0, 48)),
                   ),
                 ),
-                SizedBox(width: 16),
+                const SizedBox(width: 16),
                 Expanded(
                   child: ElevatedButton(
                     onPressed: _saveSale,
                     child: Text(t('save')),
-                    style: ElevatedButton.styleFrom(minimumSize: Size(0, 48)),
                   ),
                 ),
               ],
             ),
+            const SizedBox(height: 40),
           ],
         ),
       ),
@@ -1203,126 +1159,93 @@ class _AddEditSalePageState extends State<AddEditSalePage> {
   }
 }
 
-// Sale Detail Page (added payment history and add payment)
+// ──────────────────────────────────────────────
+// Sale Detail Page
+// ──────────────────────────────────────────────
 class SaleDetailPage extends StatefulWidget {
   final Sale sale;
   final Function(Sale) onUpdate;
   final Function(String) onDelete;
   final Function(Payment) onAddPayment;
-  final List<Payment> payments;
-  final AppLanguage appLanguage;
+  final AppManager appManager;
 
-  SaleDetailPage({
+  const SaleDetailPage({
+    super.key,
     required this.sale,
     required this.onUpdate,
     required this.onDelete,
     required this.onAddPayment,
-    required this.payments,
-    required this.appLanguage,
+    required this.appManager,
   });
 
   @override
-  _SaleDetailPageState createState() => _SaleDetailPageState();
+  State<SaleDetailPage> createState() => _SaleDetailPageState();
 }
 
 class _SaleDetailPageState extends State<SaleDetailPage> {
-  String t(String key) {
-    return AppTranslations.translate(key, widget.appLanguage.currentLanguage);
-  }
+  String t(String key) => AppTranslations.translate(key, widget.appManager.currentLanguage);
 
-  void _showDeleteDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1E1E1E),
-        title: Text(t('delete_confirm')),
-        content: Text(t('delete_message')),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(t('no'))),
-          ElevatedButton(
-            onPressed: () {
-              widget.onDelete(widget.sale.id);
-              Navigator.pop(context);
-              Navigator.pop(context);
-            },
-            child: Text(t('yes')),
-          ),
-        ],
-      ),
-    );
-  }
+  final Box<Payment> _paymentBox = Hive.box<Payment>('payments');
 
-  void _showImageDialog() {
-    if (widget.sale.productImagePath == null) return;
-    showDialog(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: Color(0xFF1E1E1E),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            AppBar(
-              title: Text(t('product_image')),
-              leading: IconButton(icon: Icon(Icons.close), onPressed: () => Navigator.pop(context)),
-            ),
-            Padding(
-              padding: EdgeInsets.all(16),
-              child: Image.file(File(widget.sale.productImagePath!)),
-            ),
-          ],
-        ),
-      ),
-    );
+  List<Payment> get payments {
+    return _paymentBox.values.where((p) => p.saleId == widget.sale.id).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
   }
 
   void _showAddPaymentDialog() {
-    TextEditingController amountController = TextEditingController();
-    TextEditingController notesController = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: Color(0xFF1E1E1E),
-        title: Text(t('add_payment')),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextFormField(
-              controller: amountController,
-              decoration: InputDecoration(labelText: t('amount')),
-              keyboardType: TextInputType.number,
+      builder: (context) {
+        return AlertDialog(
+          title: Text(t('add_payment')),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: amountCtrl,
+                decoration: InputDecoration(labelText: t('amount')),
+                keyboardType: TextInputType.number,
+              ),
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: notesCtrl,
+                decoration: InputDecoration(labelText: t('notes')),
+                maxLines: 2,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: Text(t('cancel')),
             ),
-            SizedBox(height: 16),
-            TextFormField(
-              controller: notesController,
-              decoration: InputDecoration(labelText: t('notes')),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(amountCtrl.text) ?? 0;
+                if (amount > 0 && amount <= widget.sale.pendingAmount) {
+                  widget.onAddPayment(Payment(
+                    saleId: widget.sale.id,
+                    amount: amount,
+                    date: DateTime.now(),
+                    notes: notesCtrl.text.trim(),
+                  ));
+                  Navigator.pop(context);
+                }
+              },
+              child: Text(t('save')),
             ),
           ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: Text(t('cancel'))),
-          ElevatedButton(
-            onPressed: () {
-              double amount = double.tryParse(amountController.text) ?? 0;
-              if (amount > 0 && amount <= widget.sale.pendingAmount) {
-                widget.onAddPayment(Payment(
-                  saleId: widget.sale.id,
-                  amount: amount,
-                  date: DateTime.now(),
-                  notes: notesController.text,
-                ));
-                Navigator.pop(context);
-                setState(() {}); // Refresh page
-              }
-            },
-            child: Text(t('save')),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 
-  Future<void> _downloadSlip() async {
+  Future<void> _generateAndShareSlip() async {
     final pdf = pw.Document();
+
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
@@ -1330,26 +1253,38 @@ class _SaleDetailPageState extends State<SaleDetailPage> {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              pw.Text('Sale Slip', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text('Sale Receipt', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
               pw.SizedBox(height: 20),
               pw.Text('Customer: ${widget.sale.customerName}'),
               pw.Text('Shop: ${widget.sale.shopName}'),
               pw.Text('Phone: ${widget.sale.phone}'),
               pw.Text('Address: ${widget.sale.address}'),
               pw.SizedBox(height: 20),
-              pw.Text('Products:'),
-              ...widget.sale.products.map((p) => pw.Text('${p.name} - ${p.quantity} x ₹${p.pricePerUnit}')),
+              pw.Text('Products:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+              ...widget.sale.products.map(
+                    (p) => pw.Text('${p.name} × ${p.quantity} @ ₹${p.pricePerUnit.toStringAsFixed(0)}'),
+              ),
               pw.SizedBox(height: 20),
-              pw.Text('Total Amount: ₹${widget.sale.totalAmount}'),
-              pw.Text('Paid: ₹${widget.sale.paidAmount}'),
-              pw.Text('Pending: ₹${widget.sale.pendingAmount}'),
-              pw.Text('Date: ${DateFormat('dd MMM yyyy').format(widget.sale.date)}'),
+              pw.Text('Total Amount: ₹${widget.sale.totalAmount.toStringAsFixed(0)}'),
+              pw.Text('Paid Amount: ₹${widget.sale.paidAmount.toStringAsFixed(0)}'),
+              pw.Text('Pending Amount: ₹${widget.sale.pendingAmount.toStringAsFixed(0)}'),
+              pw.SizedBox(height: 20),
+              pw.Text('Payment History:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+              ...payments.map(
+                    (p) => pw.Text(
+                  '${DateFormat('dd MMM yyyy | HH:mm').format(p.date)} : ₹${p.amount.toStringAsFixed(0)} ${p.notes.isNotEmpty ? '(${p.notes})' : ''}',
+                ),
+              ),
+              pw.SizedBox(height: 30),
+              pw.Text('Generated on: ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())}'),
             ],
           );
         },
       ),
     );
-    await Printing.sharePdf(bytes: await pdf.save(), filename: 'sale_slip_${widget.sale.id}.pdf');
+
+    final bytes = await pdf.save();
+    await Printing.sharePdf(bytes: bytes, filename: 'sale_${widget.sale.id}.pdf');
   }
 
   @override
@@ -1359,163 +1294,220 @@ class _SaleDetailPageState extends State<SaleDetailPage> {
         title: Text(t('sale_details')),
         actions: [
           IconButton(
-            icon: Icon(Icons.edit),
+            icon: const Icon(Icons.edit),
             onPressed: () {
               Navigator.push(
                 context,
                 MaterialPageRoute(
-                  builder: (context) => AddEditSalePage(
+                  builder: (_) => AddEditSalePage(
                     sale: widget.sale,
-                    onSave: (updated) {
-                      widget.onUpdate(updated);
-                      setState(() {});
-                    },
-                    appLanguage: widget.appLanguage,
+                    onSave: widget.onUpdate,
+                    appManager: widget.appManager,
                   ),
                 ),
               );
             },
           ),
-          IconButton(icon: Icon(Icons.delete), onPressed: _showDeleteDialog),
+          IconButton(
+            icon: const Icon(Icons.delete),
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (context) => AlertDialog(
+                  title: Text(t('delete_confirm')),
+                  content: Text(t('delete_message')),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: Text(t('no')),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        widget.onDelete(widget.sale.id);
+                        Navigator.pop(context);
+                        Navigator.pop(context);
+                      },
+                      child: Text(t('yes'), style: const TextStyle(color: Colors.red)),
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
         ],
       ),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          Center(
-            child: Container(
-              padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-              decoration: BoxDecoration(
-                color: widget.sale.status == 'paid' ? Colors.green[900] : Colors.orange[900],
-                borderRadius: BorderRadius.circular(24),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Status Badge
+            Center(
+              child: Chip(
+                label: Text(
+                  widget.sale.status == 'paid' ? t('paid') : t('pending'),
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                backgroundColor: widget.sale.status == 'paid' ? Colors.green : Colors.orange,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
               ),
-              child: Text(
-                widget.sale.status == 'paid' ? t('paid') : t('pending'),
-                style: TextStyle(
-                  color: widget.sale.status == 'paid' ? Colors.green[300] : Colors.orange[300],
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Customer Info
+            _buildSectionCard(
+              title: t('customer_info'),
+              children: [
+                _buildRow(Icons.person, t('customer_name'), widget.sale.customerName),
+                _buildRow(Icons.store, t('shop_name'), widget.sale.shopName),
+                _buildRow(Icons.phone, t('phone'), widget.sale.phone),
+                _buildRow(Icons.location_on, t('address'), widget.sale.address),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Products
+            _buildSectionCard(
+              title: t('product_info'),
+              children: [
+                ...widget.sale.products.map(
+                      (p) => _buildRow(
+                    Icons.shopping_cart,
+                    p.name,
+                    '${p.quantity} × ₹${p.pricePerUnit.toStringAsFixed(0)}',
+                  ),
+                ),
+                if (widget.sale.productImagePath != null && widget.sale.productImagePath!.isNotEmpty) ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.file(
+                      File(widget.sale.productImagePath!),
+                      height: 200,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Payment Info
+            _buildSectionCard(
+              title: t('payment_info'),
+              children: [
+                _buildAmountRow(t('total_amount'), widget.sale.totalAmount, Colors.blue),
+                _buildAmountRow(t('paid_amount'), widget.sale.paidAmount, Colors.green),
+                _buildAmountRow(t('pending_amount'), widget.sale.pendingAmount, Colors.orange),
+                const Divider(),
+                _buildRow(Icons.calendar_today, t('date'), DateFormat('dd MMM yyyy').format(widget.sale.date)),
+                if (widget.sale.notes.isNotEmpty) _buildRow(Icons.note, t('notes'), widget.sale.notes),
+              ],
+            ),
+
+            const SizedBox(height: 24),
+
+            // Payment History
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          t('payment_history'),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                        if (widget.sale.pendingAmount > 0)
+                          OutlinedButton.icon(
+                            onPressed: _showAddPaymentDialog,
+                            icon: const Icon(Icons.add, size: 18),
+                            label: Text(t('add_payment')),
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    ValueListenableBuilder<Box<Payment>>(
+                      valueListenable: _paymentBox.listenable(),
+                      builder: (context, box, _) {
+                        final payments = _getPaymentsForSale(widget.sale.id);
+                        if (payments.isEmpty) {
+                          return const Text('No payments recorded yet.', style: TextStyle(color: Colors.grey));
+                        }
+                        return Column(
+                          children: payments.map((p) {
+                            return ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(
+                                '${DateFormat('dd MMM yyyy | HH:mm').format(p.date)} : ₹${p.amount.toStringAsFixed(0)}',
+                                style: const TextStyle(fontWeight: FontWeight.w500),
+                              ),
+                              subtitle: p.notes.isNotEmpty ? Text(p.notes) : null,
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
-          ),
-          SizedBox(height: 24),
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t('customer_info'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300])),
-                  SizedBox(height: 16),
-                  _buildInfoRow(Icons.person, t('customer_name'), widget.sale.customerName),
-                  _buildInfoRow(Icons.store, t('shop_name'), widget.sale.shopName),
-                  _buildInfoRow(Icons.phone, t('phone'), widget.sale.phone),
-                  _buildInfoRow(Icons.location_on, t('address'), widget.sale.address),
-                ],
+
+            const SizedBox(height: 24),
+
+            // Download Slip
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _generateAndShareSlip,
+                icon: const Icon(Icons.picture_as_pdf),
+                label: Text(t('download_slip')),
+                style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 14)),
               ),
             ),
-          ),
-          SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t('product_info'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300])),
-                  SizedBox(height: 16),
-                  ...widget.sale.products.map((p) => _buildInfoRow(Icons.shopping_cart, '${p.name} (${p.quantity} x ₹${p.pricePerUnit})', '')),
-                  if (widget.sale.productImagePath != null) ...[
-                    SizedBox(height: 16),
-                    InkWell(
-                      onTap: _showImageDialog,
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(File(widget.sale.productImagePath!), height: 150, width: double.infinity, fit: BoxFit.cover),
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Center(child: TextButton.icon(onPressed: _showImageDialog, icon: Icon(Icons.zoom_in), label: Text(t('view_image')))),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t('payment_info'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300])),
-                  SizedBox(height: 16),
-                  _buildAmountRow(t('total_amount'), widget.sale.totalAmount, Colors.blue),
-                  _buildAmountRow(t('paid_amount'), widget.sale.paidAmount, Colors.green),
-                  _buildAmountRow(t('pending_amount'), widget.sale.pendingAmount, Colors.orange),
-                  Divider(height: 24, color: Colors.grey[800]),
-                  _buildInfoRow(Icons.account_balance_wallet, t('payment_method'), t(widget.sale.paymentMethod.toLowerCase())),
-                  _buildInfoRow(Icons.calendar_today, t('date'), DateFormat('dd MMM yyyy').format(widget.sale.date)),
-                  if (widget.sale.notes.isNotEmpty) _buildInfoRow(Icons.note, t('notes'), widget.sale.notes),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 16),
-          if (widget.sale.pendingAmount > 0)
-            ElevatedButton.icon(
-              onPressed: _showAddPaymentDialog,
-              icon: Icon(Icons.add),
-              label: Text(t('add_payment')),
-              style: ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 48)),
-            ),
-          SizedBox(height: 16),
-          Card(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(t('payment_history'), style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue[300])),
-                  SizedBox(height: 16),
-                  if (widget.payments.isEmpty)
-                    Text('No payments yet', style: TextStyle(color: Colors.grey[400])),
-                  ...widget.payments.map((p) => ListTile(
-                    title: Text('₹${p.amount} on ${DateFormat('dd MMM yyyy HH:mm').format(p.date)}'),
-                    subtitle: Text(p.notes),
-                  )),
-                ],
-              ),
-            ),
-          ),
-          SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _downloadSlip,
-            icon: Icon(Icons.download),
-            label: Text(t('download_slip')),
-            style: ElevatedButton.styleFrom(minimumSize: Size(double.infinity, 48)),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildInfoRow(IconData icon, String label, String value) {
+  Widget _buildSectionCard({required String title, required List<Widget> children}) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(IconData icon, String label, String value) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: Colors.grey[400]),
-          SizedBox(width: 12),
+          Icon(icon, size: 20, color: Colors.grey[600]),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[400])),
-                SizedBox(height: 4),
-                Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.w500, color: Colors.white)),
+                Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                const SizedBox(height: 4),
+                Text(value, style: const TextStyle(fontSize: 15)),
               ],
             ),
           ),
@@ -1526,67 +1518,132 @@ class _SaleDetailPageState extends State<SaleDetailPage> {
 
   Widget _buildAmountRow(String label, double amount, Color color) {
     return Padding(
-      padding: EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.only(bottom: 12),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[400])),
-          Text('₹${amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color)),
+          Text(label, style: TextStyle(fontSize: 14, color: Colors.grey[600])),
+          Text(
+            '₹${amount.toStringAsFixed(0)}',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
+          ),
         ],
       ),
     );
   }
+
+  List<Payment> _getPaymentsForSale(String saleId) {
+    return _paymentBox.values.where((p) => p.saleId == saleId).toList()
+      ..sort((a, b) => b.date.compareTo(a.date));
+  }
+
+  // Future<void> _generateAndShareSlip() async {
+  //   final pdf = pw.Document();
+  //
+  //   pdf.addPage(
+  //     pw.Page(
+  //       pageFormat: PdfPageFormat.a4,
+  //       build: (pw.Context context) {
+  //         return pw.Column(
+  //           crossAxisAlignment: pw.CrossAxisAlignment.start,
+  //           children: [
+  //             pw.Text('Sale Receipt', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
+  //             pw.SizedBox(height: 20),
+  //             pw.Text('Customer: ${widget.sale.customerName}'),
+  //             pw.Text('Shop: ${widget.sale.shopName}'),
+  //             pw.Text('Phone: ${widget.sale.phone}'),
+  //             pw.Text('Address: ${widget.sale.address}'),
+  //             pw.SizedBox(height: 20),
+  //             pw.Text('Products:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+  //             ...widget.sale.products.map(
+  //                   (p) => pw.Text('${p.name} × ${p.quantity} @ ₹${p.pricePerUnit.toStringAsFixed(0)}'),
+  //             ),
+  //             pw.SizedBox(height: 20),
+  //             pw.Text('Total Amount: ₹${widget.sale.totalAmount.toStringAsFixed(0)}'),
+  //             pw.Text('Paid Amount: ₹${widget.sale.paidAmount.toStringAsFixed(0)}'),
+  //             pw.Text('Pending Amount: ₹${widget.sale.pendingAmount.toStringAsFixed(0)}'),
+  //             pw.SizedBox(height: 20),
+  //             pw.Text('Payment History:', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+  //             ..._getPaymentsForSale(widget.sale.id).map(
+  //                   (p) => pw.Text(
+  //                 '${DateFormat('dd MMM yyyy | HH:mm').format(p.date)} : ₹${p.amount.toStringAsFixed(0)} ${p.notes.isNotEmpty ? '(${p.notes})' : ''}',
+  //               ),
+  //             ),
+  //             pw.SizedBox(height: 30),
+  //             pw.Text('Generated on: ${DateFormat('dd MMM yyyy HH:mm').format(DateTime.now())}'),
+  //           ],
+  //         );
+  //       },
+  //     ),
+  //   );
+  //
+  //   final bytes = await pdf.save();
+  //   await Printing.sharePdf(bytes: bytes, filename: 'sale_${widget.sale.id}.pdf');
+  // }
 }
 
-// History Page (same, with dark theme)
+// ──────────────────────────────────────────────
+// History Page
+// ──────────────────────────────────────────────
 class HistoryPage extends StatelessWidget {
   final List<Sale> sales;
-  final AppLanguage appLanguage;
+  final AppManager appManager;
 
-  HistoryPage({required this.sales, required this.appLanguage});
+  const HistoryPage({super.key, required this.sales, required this.appManager});
 
-  String t(String key) {
-    return AppTranslations.translate(key, appLanguage.currentLanguage);
-  }
+  String t(String key) => AppTranslations.translate(key, appManager.currentLanguage);
 
   @override
   Widget build(BuildContext context) {
-    Map<String, List<Sale>> groupedSales = {};
+    final grouped = <String, List<Sale>>{};
+
     for (var sale in sales) {
-      String monthYear = DateFormat('MMMM yyyy').format(sale.date);
-      groupedSales.putIfAbsent(monthYear, () => []).add(sale);
+      final key = DateFormat('MMMM yyyy').format(sale.date);
+      grouped.putIfAbsent(key, () => []).add(sale);
     }
 
     return Scaffold(
       appBar: AppBar(title: Text(t('history'))),
       body: ListView.builder(
-        padding: EdgeInsets.all(16),
-        itemCount: groupedSales.length,
+        padding: const EdgeInsets.all(16),
+        itemCount: grouped.length,
         itemBuilder: (context, index) {
-          String month = groupedSales.keys.elementAt(index);
-          List<Sale> monthSales = groupedSales[month]!;
-          double monthTotal = monthSales.fold(0, (sum, sale) => sum + sale.totalAmount);
+          final month = grouped.keys.elementAt(index);
+          final monthSales = grouped[month]!;
+          final total = monthSales.fold<double>(0, (sum, s) => sum + s.totalAmount);
 
           return Card(
-            margin: EdgeInsets.only(bottom: 16),
+            margin: const EdgeInsets.only(bottom: 12),
             child: ExpansionTile(
-              title: Text(month, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+              title: Text(month, style: const TextStyle(fontWeight: FontWeight.bold)),
               subtitle: Text('${t('total_records')}: ${monthSales.length}'),
-              trailing: Text('₹${monthTotal.toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue[300])),
+              trailing: Text(
+                '₹${total.toStringAsFixed(0)}',
+                style: TextStyle(color: Colors.blue[700], fontWeight: FontWeight.bold),
+              ),
               children: monthSales.map((sale) {
                 return ListTile(
                   leading: CircleAvatar(
-                    backgroundColor: sale.status == 'paid' ? Colors.green[900] : Colors.orange[900],
-                    child: Icon(Icons.shopping_bag, color: sale.status == 'paid' ? Colors.green[300] : Colors.orange[300]),
+                    backgroundColor: sale.status == 'paid' ? Colors.green[100] : Colors.orange[100],
+                    child: Icon(
+                      Icons.receipt,
+                      color: sale.status == 'paid' ? Colors.green : Colors.orange,
+                    ),
                   ),
-                  title: Text(sale.customerName, style: TextStyle(color: Colors.white)),
-                  subtitle: Text('${sale.products.map((p) => p.name).join(', ')} - ${DateFormat('dd MMM').format(sale.date)}', style: TextStyle(color: Colors.grey[400])),
+                  title: Text(sale.customerName),
+                  subtitle: Text(
+                    '${sale.products.map((p) => p.name).join(', ')} • ${DateFormat('dd MMM').format(sale.date)}',
+                  ),
                   trailing: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
-                      Text('₹${sale.totalAmount.toStringAsFixed(0)}', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
-                      if (sale.pendingAmount > 0) Text('₹${sale.pendingAmount.toStringAsFixed(0)} ${t('pending')}', style: TextStyle(fontSize: 11, color: Colors.orange[300])),
+                      Text('₹${sale.totalAmount.toStringAsFixed(0)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      if (sale.pendingAmount > 0)
+                        Text(
+                          '₹${sale.pendingAmount.toStringAsFixed(0)} ${t('pending')}',
+                          style: TextStyle(color: Colors.orange[800], fontSize: 12),
+                        ),
                     ],
                   ),
                 );
@@ -1598,1577 +1655,3 @@ class HistoryPage extends StatelessWidget {
     );
   }
 }
-// import 'package:flutter/material.dart';
-// import 'package:intl/intl.dart';
-// import 'package:image_picker/image_picker.dart';
-// import 'dart:io';
-//
-// void main() {
-//   runApp(SalesProApp());
-// }
-//
-// // Language Manager
-// class AppLanguage extends ChangeNotifier {
-//   String _currentLanguage = 'en'; // 'en' or 'hi'
-//
-//   String get currentLanguage => _currentLanguage;
-//   bool get isHindi => _currentLanguage == 'hi';
-//
-//   void toggleLanguage() {
-//     _currentLanguage = _currentLanguage == 'en' ? 'hi' : 'en';
-//     notifyListeners();
-//   }
-//
-//   void setLanguage(String lang) {
-//     _currentLanguage = lang;
-//     notifyListeners();
-//   }
-// }
-//
-// // Translations
-// class AppTranslations {
-//   static final Map<String, Map<String, String>> _translations = {
-//     'en': {
-//       'app_name': 'SalesPro',
-//       'total_sales': 'Total Sales',
-//       'pending': 'Pending',
-//       'paid': 'Paid',
-//       'search_hint': 'Search by customer, shop, product...',
-//       'all_sales': 'All Sales',
-//       'add_sale': 'Add Sale',
-//       'edit_sale': 'Edit Sale',
-//       'sale_details': 'Sale Details',
-//       'customer_info': 'Customer Information',
-//       'product_info': 'Product Information',
-//       'payment_info': 'Payment Information',
-//       'customer_name': 'Customer Name',
-//       'shop_name': 'Shop Name',
-//       'phone': 'Phone Number',
-//       'address': 'Address',
-//       'product_name': 'Product Name',
-//       'quantity': 'Quantity',
-//       'price_per_unit': 'Price Per Unit',
-//       'total_amount': 'Total Amount',
-//       'paid_amount': 'Paid Amount',
-//       'pending_amount': 'Pending Amount',
-//       'payment_method': 'Payment Method',
-//       'date': 'Date',
-//       'status': 'Status',
-//       'notes': 'Notes',
-//       'product_image': 'Product Image',
-//       'add_image': 'Add Image',
-//       'view_image': 'View Image',
-//       'change_image': 'Change Image',
-//       'save': 'Save',
-//       'cancel': 'Cancel',
-//       'edit': 'Edit',
-//       'delete': 'Delete',
-//       'delete_confirm': 'Delete Confirmation',
-//       'delete_message': 'Are you sure you want to delete this sale record?',
-//       'yes': 'Yes',
-//       'no': 'No',
-//       'cash': 'Cash',
-//       'online': 'Online',
-//       'cheque': 'Cheque',
-//       'history': 'History',
-//       'download_slip': 'Download Slip',
-//       'no_sales': 'No sales records found',
-//       'required_field': 'This field is required',
-//       'invalid_phone': 'Invalid phone number',
-//       'sale_added': 'Sale added successfully',
-//       'sale_updated': 'Sale updated successfully',
-//       'sale_deleted': 'Sale deleted successfully',
-//       'from_camera': 'From Camera',
-//       'from_gallery': 'From Gallery',
-//       'language': 'Language',
-//       'english': 'English',
-//       'hindi': 'हिंदी',
-//       'total_records': 'Total Records',
-//       'view_details': 'View Details',
-//       'settings': 'Settings',
-//     },
-//     'hi': {
-//       'app_name': 'सेल्सप्रो',
-//       'total_sales': 'कुल बिक्री',
-//       'pending': 'बकाया',
-//       'paid': 'भुगतान',
-//       'search_hint': 'ग्राहक, दुकान, उत्पाद से खोजें...',
-//       'all_sales': 'सभी बिक्री',
-//       'add_sale': 'बिक्री जोड़ें',
-//       'edit_sale': 'बिक्री संपादित करें',
-//       'sale_details': 'बिक्री विवरण',
-//       'customer_info': 'ग्राहक जानकारी',
-//       'product_info': 'उत्पाद जानकारी',
-//       'payment_info': 'भुगतान जानकारी',
-//       'customer_name': 'ग्राहक का नाम',
-//       'shop_name': 'दुकान का नाम',
-//       'phone': 'फ़ोन नंबर',
-//       'address': 'पता',
-//       'product_name': 'उत्पाद का नाम',
-//       'quantity': 'मात्रा',
-//       'price_per_unit': 'प्रति यूनिट कीमत',
-//       'total_amount': 'कुल राशि',
-//       'paid_amount': 'भुगतान राशि',
-//       'pending_amount': 'बकाया राशि',
-//       'payment_method': 'भुगतान विधि',
-//       'date': 'तारीख',
-//       'status': 'स्थिति',
-//       'notes': 'नोट्स',
-//       'product_image': 'उत्पाद की तस्वीर',
-//       'add_image': 'तस्वीर जोड़ें',
-//       'view_image': 'तस्वीर देखें',
-//       'change_image': 'तस्वीर बदलें',
-//       'save': 'सहेजें',
-//       'cancel': 'रद्द करें',
-//       'edit': 'संपादित करें',
-//       'delete': 'हटाएं',
-//       'delete_confirm': 'हटाने की पुष्टि',
-//       'delete_message': 'क्या आप वाकई इस बिक्री रिकॉर्ड को हटाना चाहते हैं?',
-//       'yes': 'हां',
-//       'no': 'नहीं',
-//       'cash': 'नकद',
-//       'online': 'ऑनलाइन',
-//       'cheque': 'चेक',
-//       'history': 'इतिहास',
-//       'download_slip': 'रसीद डाउनलोड करें',
-//       'no_sales': 'कोई बिक्री रिकॉर्ड नहीं मिला',
-//       'required_field': 'यह फ़ील्ड आवश्यक है',
-//       'invalid_phone': 'अमान्य फ़ोन नंबर',
-//       'sale_added': 'बिक्री सफलतापूर्वक जोड़ी गई',
-//       'sale_updated': 'बिक्री सफलतापूर्वक अपडेट की गई',
-//       'sale_deleted': 'बिक्री सफलतापूर्वक हटाई गई',
-//       'from_camera': 'कैमरा से',
-//       'from_gallery': 'गैलरी से',
-//       'language': 'भाषा',
-//       'english': 'English',
-//       'hindi': 'हिंदी',
-//       'total_records': 'कुल रिकॉर्ड',
-//       'view_details': 'विवरण देखें',
-//       'settings': 'सेटिंग्स',
-//     },
-//   };
-//
-//   static String translate(String key, String language) {
-//     return _translations[language]?[key] ?? key;
-//   }
-// }
-//
-// class SalesProApp extends StatefulWidget {
-//   @override
-//   _SalesProAppState createState() => _SalesProAppState();
-// }
-//
-// class _SalesProAppState extends State<SalesProApp> {
-//   final AppLanguage _appLanguage = AppLanguage();
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return AnimatedBuilder(
-//       animation: _appLanguage,
-//       builder: (context, child) {
-//         return MaterialApp(
-//           title: AppTranslations.translate('app_name', _appLanguage.currentLanguage),
-//           debugShowCheckedModeBanner: false,
-//           theme: ThemeData.dark().copyWith(
-//             primaryColor: Color(0xFF2563EB),
-//             scaffoldBackgroundColor: Color(0xFF121212),
-//             appBarTheme: AppBarTheme(
-//               elevation: 0,
-//               backgroundColor: Color(0xFF1E1E1E),
-//               foregroundColor: Colors.white,
-//             ),
-//             cardTheme: CardTheme(
-//               elevation: 2,
-//               color: Color(0xFF1E1E1E),
-//               shape: RoundedRectangleBorder(
-//                 borderRadius: BorderRadius.circular(12),
-//               ),
-//             ),
-//             inputDecorationTheme: InputDecorationTheme(
-//               border: OutlineInputBorder(
-//                 borderRadius: BorderRadius.circular(8),
-//                 borderSide: BorderSide.none,
-//               ),
-//               filled: true,
-//               fillColor: Color(0xFF2A2A2A),
-//             ),
-//           ),
-//           home: HomePage(appLanguage: _appLanguage),
-//         );
-//       },
-//     );
-//   }
-// }
-//
-// class Sale {
-//   String id;
-//   String customerName;
-//   String shopName;
-//   String phone;
-//   String address;
-//   String productName;
-//   int quantity;
-//   double pricePerUnit;
-//   double totalAmount;
-//   double paidAmount;
-//   double pendingAmount;
-//   String paymentMethod;
-//   DateTime date;
-//   String status;
-//   String notes;
-//   String? productImagePath;
-//
-//   Sale({
-//     required this.id,
-//     required this.customerName,
-//     required this.shopName,
-//     required this.phone,
-//     required this.address,
-//     required this.productName,
-//     required this.quantity,
-//     required this.pricePerUnit,
-//     required this.totalAmount,
-//     required this.paidAmount,
-//     required this.pendingAmount,
-//     required this.paymentMethod,
-//     required this.date,
-//     required this.status,
-//     required this.notes,
-//     this.productImagePath,
-//   });
-// }
-//
-// class HomePage extends StatefulWidget {
-//   final AppLanguage appLanguage;
-//
-//   HomePage({required this.appLanguage});
-//
-//   @override
-//   _HomePageState createState() => _HomePageState();
-// }
-//
-// class _HomePageState extends State<HomePage> {
-//   List<Sale> sales = [];
-//   List<Sale> filteredSales = [];
-//   String searchQuery = '';
-//   String filterStatus = 'all';
-//   DateTime _currentMonth = DateTime.now();
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _loadDemoData();
-//   }
-//
-//   String t(String key) {
-//     return AppTranslations.translate(key, widget.appLanguage.currentLanguage);
-//   }
-//
-//   void _loadDemoData() {
-//     sales = [
-//       Sale(
-//         id: '1',
-//         customerName: 'Rajesh Kumar',
-//         shopName: 'Kumar General Store',
-//         phone: '9876543210',
-//         address: 'Main Market, Ludhiana',
-//         productName: 'Rice Bags (25kg)',
-//         quantity: 50,
-//         pricePerUnit: 1200,
-//         totalAmount: 60000,
-//         paidAmount: 40000,
-//         pendingAmount: 20000,
-//         paymentMethod: 'Cash',
-//         date: DateTime.now().subtract(Duration(days: 8)),
-//         status: 'pending',
-//         notes: 'Delivery completed',
-//       ),
-//       Sale(
-//         id: '2',
-//         customerName: 'Priya Sharma',
-//         shopName: 'Sharma Trading Co.',
-//         phone: '9876543211',
-//         address: 'Mall Road, Ludhiana',
-//         productName: 'Wheat Flour (10kg)',
-//         quantity: 100,
-//         pricePerUnit: 400,
-//         totalAmount: 40000,
-//         paidAmount: 40000,
-//         pendingAmount: 0,
-//         paymentMethod: 'Online',
-//         date: DateTime.now().subtract(Duration(days: 3)),
-//         status: 'paid',
-//         notes: 'Paid in full',
-//       ),
-//       // Add more demo data if needed for testing day grouping
-//       Sale(
-//         id: '3',
-//         customerName: 'Amit Verma',
-//         shopName: 'Verma Kirana',
-//         phone: '9876543212',
-//         address: 'Near Park, Ludhiana',
-//         productName: 'Sugar (50kg)',
-//         quantity: 20,
-//         pricePerUnit: 4500,
-//         totalAmount: 90000,
-//         paidAmount: 50000,
-//         pendingAmount: 40000,
-//         paymentMethod: 'Cash',
-//         date: DateTime.now().subtract(Duration(days: 5)),
-//         status: 'pending',
-//         notes: 'Partial payment',
-//       ),
-//     ];
-//     _filterSales();
-//   }
-//
-//   void _changeMonth(int delta) {
-//     setState(() {
-//       _currentMonth = DateTime(_currentMonth.year, _currentMonth.month + delta);
-//       _filterSales(); // Re-filter for new month
-//     });
-//   }
-//
-//   List<Sale> get _monthlySales {
-//     return sales.where((sale) {
-//       return sale.date.year == _currentMonth.year &&
-//           sale.date.month == _currentMonth.month &&
-//           (searchQuery.isEmpty ||
-//               sale.customerName.toLowerCase().contains(searchQuery.toLowerCase()) ||
-//               sale.shopName.toLowerCase().contains(searchQuery.toLowerCase()) ||
-//               sale.productName.toLowerCase().contains(searchQuery.toLowerCase())) &&
-//           (filterStatus == 'all' || sale.status == filterStatus);
-//     }).toList()..sort((a, b) => b.date.compareTo(a.date));
-//   }
-//
-//   Map<DateTime, List<Sale>> get _groupedByDay {
-//     final map = <DateTime, List<Sale>>{};
-//     for (var sale in _monthlySales) {
-//       final day = DateTime(sale.date.year, sale.date.month, sale.date.day);
-//       map.putIfAbsent(day, () => []).add(sale);
-//     }
-//     return map;
-//   }
-//
-//   void _filterSales() {
-//     setState(() {
-//       filteredSales = _monthlySales;
-//     });
-//   }
-//
-//   void _addSale(Sale sale) {
-//     setState(() {
-//       sales.insert(0, sale);
-//       _filterSales();
-//     });
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(content: Text(t('sale_added'))),
-//     );
-//   }
-//
-//   void _updateSale(Sale updatedSale) {
-//     setState(() {
-//       int index = sales.indexWhere((s) => s.id == updatedSale.id);
-//       if (index != -1) {
-//         sales[index] = updatedSale;
-//         _filterSales();
-//       }
-//     });
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(content: Text(t('sale_updated'))),
-//     );
-//   }
-//
-//   void _deleteSale(String id) {
-//     setState(() {
-//       sales.removeWhere((s) => s.id == id);
-//       _filterSales();
-//     });
-//     ScaffoldMessenger.of(context).showSnackBar(
-//       SnackBar(content: Text(t('sale_deleted'))),
-//     );
-//   }
-//
-//   double _getTotalSalesThisMonth() {
-//     return _monthlySales.fold(0, (sum, sale) => sum + sale.totalAmount);
-//   }
-//
-//   double _getTotalPaidThisMonth() {
-//     return _monthlySales.fold(0, (sum, sale) => sum + sale.paidAmount);
-//   }
-//
-//   double _getTotalPendingOverall() {
-//     return sales.fold(0, (sum, sale) => sum + sale.pendingAmount);
-//   }
-//
-//   void _showLanguageDialog() {
-//     showDialog(
-//       context: context,
-//       builder: (context) => AlertDialog(
-//         backgroundColor: Color(0xFF1E1E1E),
-//         title: Text(t('language')),
-//         content: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             ListTile(
-//               leading: Radio<String>(
-//                 value: 'en',
-//                 groupValue: widget.appLanguage.currentLanguage,
-//                 onChanged: (value) {
-//                   widget.appLanguage.setLanguage('en');
-//                   Navigator.pop(context);
-//                 },
-//               ),
-//               title: Text('English'),
-//               onTap: () {
-//                 widget.appLanguage.setLanguage('en');
-//                 Navigator.pop(context);
-//               },
-//             ),
-//             ListTile(
-//               leading: Radio<String>(
-//                 value: 'hi',
-//                 groupValue: widget.appLanguage.currentLanguage,
-//                 onChanged: (value) {
-//                   widget.appLanguage.setLanguage('hi');
-//                   Navigator.pop(context);
-//                 },
-//               ),
-//               title: Text('हिंदी'),
-//               onTap: () {
-//                 widget.appLanguage.setLanguage('hi');
-//                 Navigator.pop(context);
-//               },
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     final grouped = _groupedByDay;
-//
-//     return Scaffold(
-//       backgroundColor: Color(0xFF121212),
-//       appBar: AppBar(
-//         title: Row(
-//           children: [
-//             Icon(Icons.shopping_bag, size: 28),
-//             SizedBox(width: 8),
-//             Text(t('app_name'), style: TextStyle(fontWeight: FontWeight.bold)),
-//           ],
-//         ),
-//         actions: [
-//           IconButton(
-//             icon: Icon(Icons.language),
-//             onPressed: _showLanguageDialog,
-//             tooltip: t('language'),
-//           ),
-//           IconButton(
-//             icon: Icon(Icons.history),
-//             onPressed: () {
-//               Navigator.push(
-//                 context,
-//                 MaterialPageRoute(
-//                   builder: (context) => HistoryPage(
-//                     sales: sales,
-//                     appLanguage: widget.appLanguage,
-//                   ),
-//                 ),
-//               );
-//             },
-//             tooltip: t('history'),
-//           ),
-//         ],
-//       ),
-//       body: Column(
-//         children: [
-//           // Month Navigation + Summary (like MyMoney)
-//           Padding(
-//             padding: EdgeInsets.all(16),
-//             child: Column(
-//               children: [
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.center,
-//                   children: [
-//                     IconButton(
-//                       icon: Icon(Icons.chevron_left, color: Colors.white),
-//                       onPressed: () => _changeMonth(-1),
-//                     ),
-//                     Text(
-//                       DateFormat('MMMM, yyyy').format(_currentMonth),
-//                       style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-//                     ),
-//                     IconButton(
-//                       icon: Icon(Icons.chevron_right, color: Colors.white),
-//                       onPressed: () => _changeMonth(1),
-//                     ),
-//                   ],
-//                 ),
-//                 SizedBox(height: 16),
-//                 Row(
-//                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-//                   children: [
-//                     _buildSummaryItem(t('total_sales'), _getTotalSalesThisMonth(), Colors.green),
-//                     _buildSummaryItem(t('paid'), _getTotalPaidThisMonth(), Colors.blue),
-//                     _buildSummaryItem(t('pending'), _getTotalPendingOverall(), Colors.orange),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//           ),
-//
-//           // Search and Filter
-//           Padding(
-//             padding: EdgeInsets.symmetric(horizontal: 16),
-//             child: Row(
-//               children: [
-//                 Expanded(
-//                   child: TextField(
-//                     style: TextStyle(color: Colors.white),
-//                     decoration: InputDecoration(
-//                       hintText: t('search_hint'),
-//                       hintStyle: TextStyle(color: Colors.grey),
-//                       prefixIcon: Icon(Icons.search, color: Colors.grey),
-//                       contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 16),
-//                     ),
-//                     onChanged: (value) {
-//                       setState(() {
-//                         searchQuery = value;
-//                         _filterSales();
-//                       });
-//                     },
-//                   ),
-//                 ),
-//                 SizedBox(width: 8),
-//                 PopupMenuButton<String>(
-//                   color: Color(0xFF1E1E1E),
-//                   icon: Icon(Icons.filter_list, color: Colors.white),
-//                   onSelected: (value) {
-//                     setState(() {
-//                       filterStatus = value;
-//                       _filterSales();
-//                     });
-//                   },
-//                   itemBuilder: (context) => [
-//                     PopupMenuItem(value: 'all', child: Text(t('all_sales'))),
-//                     PopupMenuItem(value: 'pending', child: Text(t('pending'))),
-//                     PopupMenuItem(value: 'paid', child: Text(t('paid'))),
-//                   ],
-//                 ),
-//               ],
-//             ),
-//           ),
-//
-//           SizedBox(height: 16),
-//
-//           // Sales List (grouped by day)
-//           Expanded(
-//             child: grouped.isEmpty
-//                 ? Center(
-//               child: Column(
-//                 mainAxisAlignment: MainAxisAlignment.center,
-//                 children: [
-//                   Icon(Icons.inventory_2_outlined, size: 64, color: Colors.grey),
-//                   SizedBox(height: 16),
-//                   Text(
-//                     t('no_sales'),
-//                     style: TextStyle(fontSize: 18, color: Colors.grey),
-//                   ),
-//                 ],
-//               ),
-//             )
-//                 : ListView.builder(
-//               padding: EdgeInsets.symmetric(horizontal: 16),
-//               itemCount: grouped.length,
-//               itemBuilder: (context, index) {
-//                 final day = grouped.keys.elementAt(index);
-//                 final daySales = grouped[day]!;
-//                 return Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Padding(
-//                       padding: EdgeInsets.fromLTRB(0, 16, 0, 8),
-//                       child: Text(
-//                         DateFormat('MMM dd, EEEE').format(day),
-//                         style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.white70),
-//                       ),
-//                     ),
-//                     ...daySales.map((sale) => _buildSaleCard(sale)).toList(),
-//                   ],
-//                 );
-//               },
-//             ),
-//           ),
-//         ],
-//       ),
-//       floatingActionButton: FloatingActionButton.extended(
-//         onPressed: () {
-//           Navigator.push(
-//             context,
-//             MaterialPageRoute(
-//               builder: (context) => AddEditSalePage(
-//                 onSave: _addSale,
-//                 appLanguage: widget.appLanguage,
-//               ),
-//             ),
-//           );
-//         },
-//         icon: Icon(Icons.add),
-//         label: Text(t('add_sale')),
-//         backgroundColor: Color(0xFF2563EB),
-//       ),
-//     );
-//   }
-//
-//   Widget _buildSummaryItem(String title, double value, Color color) {
-//     return Column(
-//       children: [
-//         Text(
-//           title,
-//           style: TextStyle(fontSize: 12, color: Colors.grey[400], fontWeight: FontWeight.w500),
-//         ),
-//         SizedBox(height: 4),
-//         Text(
-//           '₹${value.toStringAsFixed(0)}',
-//           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
-//         ),
-//       ],
-//     );
-//   }
-//
-//   Widget _buildSaleCard(Sale sale) {
-//     return Card(
-//       margin: EdgeInsets.only(bottom: 12),
-//       child: InkWell(
-//         onTap: () {
-//           Navigator.push(
-//             context,
-//             MaterialPageRoute(
-//               builder: (context) => SaleDetailPage(
-//                 sale: sale,
-//                 onUpdate: _updateSale,
-//                 onDelete: _deleteSale,
-//                 appLanguage: widget.appLanguage,
-//               ),
-//             ),
-//           );
-//         },
-//         borderRadius: BorderRadius.circular(12),
-//         child: Padding(
-//           padding: EdgeInsets.all(16),
-//           child: Column(
-//             crossAxisAlignment: CrossAxisAlignment.start,
-//             children: [
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   Expanded(
-//                     child: Column(
-//                       crossAxisAlignment: CrossAxisAlignment.start,
-//                       children: [
-//                         Text(
-//                           sale.customerName,
-//                           style: TextStyle(
-//                             fontSize: 16,
-//                             fontWeight: FontWeight.bold,
-//                             color: Colors.white,
-//                           ),
-//                         ),
-//                         SizedBox(height: 4),
-//                         Text(
-//                           sale.shopName,
-//                           style: TextStyle(
-//                             fontSize: 14,
-//                             color: Colors.grey[400],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                   ),
-//                   Container(
-//                     padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-//                     decoration: BoxDecoration(
-//                       color: sale.status == 'paid' ? Colors.green[900] : Colors.orange[900],
-//                       borderRadius: BorderRadius.circular(20),
-//                     ),
-//                     child: Text(
-//                       sale.status == 'paid' ? t('paid') : t('pending'),
-//                       style: TextStyle(
-//                         color: sale.status == 'paid' ? Colors.green[300] : Colors.orange[300],
-//                         fontWeight: FontWeight.w600,
-//                         fontSize: 12,
-//                       ),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               Divider(height: 24, color: Colors.grey[800]),
-//               Row(
-//                 children: [
-//                   Icon(Icons.shopping_cart, size: 16, color: Colors.grey[400]),
-//                   SizedBox(width: 8),
-//                   Text(
-//                     sale.productName,
-//                     style: TextStyle(fontSize: 14, color: Colors.white70),
-//                   ),
-//                   SizedBox(width: 8),
-//                   Text(
-//                     '(${sale.quantity} ${t('quantity')})',
-//                     style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-//                   ),
-//                 ],
-//               ),
-//               SizedBox(height: 8),
-//               Row(
-//                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//                 children: [
-//                   Column(
-//                     crossAxisAlignment: CrossAxisAlignment.start,
-//                     children: [
-//                       Text(
-//                         t('total_amount'),
-//                         style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-//                       ),
-//                       Text(
-//                         '₹${sale.totalAmount.toStringAsFixed(0)}',
-//                         style: TextStyle(
-//                           fontSize: 18,
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.blue[300],
-//                         ),
-//                       ),
-//                     ],
-//                   ),
-//                   if (sale.pendingAmount > 0)
-//                     Column(
-//                       crossAxisAlignment: CrossAxisAlignment.end,
-//                       children: [
-//                         Text(
-//                           t('pending'),
-//                           style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-//                         ),
-//                         Text(
-//                           '₹${sale.pendingAmount.toStringAsFixed(0)}',
-//                           style: TextStyle(
-//                             fontSize: 18,
-//                             fontWeight: FontWeight.bold,
-//                             color: Colors.orange[300],
-//                           ),
-//                         ),
-//                       ],
-//                     ),
-//                 ],
-//               ),
-//               SizedBox(height: 8),
-//               Text(
-//                 DateFormat('dd MMM yyyy').format(sale.date),
-//                 style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-//               ),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-// // Add Edit Sale Page (updated for dark theme)
-// class AddEditSalePage extends StatefulWidget {
-//   final Sale? sale;
-//   final Function(Sale) onSave;
-//   final AppLanguage appLanguage;
-//
-//   AddEditSalePage({this.sale, required this.onSave, required this.appLanguage});
-//
-//   @override
-//   _AddEditSalePageState createState() => _AddEditSalePageState();
-// }
-//
-// class _AddEditSalePageState extends State<AddEditSalePage> {
-//   final _formKey = GlobalKey<FormState>();
-//   late TextEditingController _customerNameController;
-//   late TextEditingController _shopNameController;
-//   late TextEditingController _phoneController;
-//   late TextEditingController _addressController;
-//   late TextEditingController _productNameController;
-//   late TextEditingController _quantityController;
-//   late TextEditingController _priceController;
-//   late TextEditingController _paidController;
-//   late TextEditingController _notesController;
-//
-//   String _paymentMethod = 'Cash';
-//   File? _productImage;
-//   final ImagePicker _picker = ImagePicker();
-//
-//   @override
-//   void initState() {
-//     super.initState();
-//     _customerNameController = TextEditingController(text: widget.sale?.customerName ?? '');
-//     _shopNameController = TextEditingController(text: widget.sale?.shopName ?? '');
-//     _phoneController = TextEditingController(text: widget.sale?.phone ?? '');
-//     _addressController = TextEditingController(text: widget.sale?.address ?? '');
-//     _productNameController = TextEditingController(text: widget.sale?.productName ?? '');
-//     _quantityController = TextEditingController(text: widget.sale?.quantity.toString() ?? '');
-//     _priceController = TextEditingController(text: widget.sale?.pricePerUnit.toString() ?? '');
-//     _paidController = TextEditingController(text: widget.sale?.paidAmount.toString() ?? '');
-//     _notesController = TextEditingController(text: widget.sale?.notes ?? '');
-//     _paymentMethod = widget.sale?.paymentMethod ?? 'Cash';
-//     if (widget.sale?.productImagePath != null) {
-//       _productImage = File(widget.sale!.productImagePath!);
-//     }
-//   }
-//
-//   String t(String key) {
-//     return AppTranslations.translate(key, widget.appLanguage.currentLanguage);
-//   }
-//
-//   Future<void> _pickImage(ImageSource source) async {
-//     final XFile? image = await _picker.pickImage(source: source);
-//     if (image != null) {
-//       setState(() {
-//         _productImage = File(image.path);
-//       });
-//     }
-//   }
-//
-//   void _showImageSourceDialog() {
-//     showModalBottomSheet(
-//       context: context,
-//       backgroundColor: Color(0xFF1E1E1E),
-//       builder: (context) => SafeArea(
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             ListTile(
-//               leading: Icon(Icons.camera_alt),
-//               title: Text(t('from_camera')),
-//               onTap: () {
-//                 Navigator.pop(context);
-//                 _pickImage(ImageSource.camera);
-//               },
-//             ),
-//             ListTile(
-//               leading: Icon(Icons.photo_library),
-//               title: Text(t('from_gallery')),
-//               onTap: () {
-//                 Navigator.pop(context);
-//                 _pickImage(ImageSource.gallery);
-//               },
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   void _saveSale() {
-//     if (_formKey.currentState!.validate()) {
-//       int quantity = int.parse(_quantityController.text);
-//       double pricePerUnit = double.parse(_priceController.text);
-//       double totalAmount = quantity * pricePerUnit;
-//       double paidAmount = double.parse(_paidController.text);
-//       double pendingAmount = totalAmount - paidAmount;
-//
-//       Sale newSale = Sale(
-//         id: widget.sale?.id ?? DateTime.now().millisecondsSinceEpoch.toString(),
-//         customerName: _customerNameController.text,
-//         shopName: _shopNameController.text,
-//         phone: _phoneController.text,
-//         address: _addressController.text,
-//         productName: _productNameController.text,
-//         quantity: quantity,
-//         pricePerUnit: pricePerUnit,
-//         totalAmount: totalAmount,
-//         paidAmount: paidAmount,
-//         pendingAmount: pendingAmount,
-//         paymentMethod: _paymentMethod,
-//         date: widget.sale?.date ?? DateTime.now(),
-//         status: pendingAmount == 0 ? 'paid' : 'pending',
-//         notes: _notesController.text,
-//         productImagePath: _productImage?.path ?? widget.sale?.productImagePath,
-//       );
-//
-//       widget.onSave(newSale);
-//       Navigator.pop(context);
-//     }
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text(widget.sale == null ? t('add_sale') : t('edit_sale')),
-//       ),
-//       body: Form(
-//         key: _formKey,
-//         child: ListView(
-//           padding: EdgeInsets.all(16),
-//           children: [
-//             // Customer Information Section
-//             Text(
-//               t('customer_info'),
-//               style: TextStyle(
-//                 fontSize: 18,
-//                 fontWeight: FontWeight.bold,
-//                 color: Colors.blue[300],
-//               ),
-//             ),
-//             SizedBox(height: 16),
-//             TextFormField(
-//               controller: _customerNameController,
-//               decoration: InputDecoration(
-//                 labelText: t('customer_name'),
-//                 prefixIcon: Icon(Icons.person),
-//               ),
-//               validator: (value) {
-//                 if (value == null || value.isEmpty) {
-//                   return t('required_field');
-//                 }
-//                 return null;
-//               },
-//             ),
-//             SizedBox(height: 16),
-//             TextFormField(
-//               controller: _phoneController,
-//               decoration: InputDecoration(
-//                 labelText: t('phone'),
-//                 prefixIcon: Icon(Icons.phone),
-//               ),
-//               keyboardType: TextInputType.phone,
-//               validator: (value) {
-//                 if (value == null || value.isEmpty) {
-//                   return t('required_field');
-//                 }
-//                 if (value.length != 10) {
-//                   return t('invalid_phone');
-//                 }
-//                 return null;
-//               },
-//             ),
-//             SizedBox(height: 16),
-//             TextFormField(
-//               controller: _addressController,
-//               decoration: InputDecoration(
-//                 labelText: t('address'),
-//                 prefixIcon: Icon(Icons.location_on),
-//               ),
-//               maxLines: 2,
-//               validator: (value) {
-//                 if (value == null || value.isEmpty) {
-//                   return t('required_field');
-//                 }
-//                 return null;
-//               },
-//             ),
-//
-//             SizedBox(height: 24),
-//             Divider(color: Colors.grey[800]),
-//             SizedBox(height: 24),
-//
-//             // Product Information Section
-//             Text(
-//               t('product_info'),
-//               style: TextStyle(
-//                 fontSize: 18,
-//                 fontWeight: FontWeight.bold,
-//                 color: Colors.blue[300],
-//               ),
-//             ),
-//             SizedBox(height: 16),
-//             TextFormField(
-//               controller: _productNameController,
-//               decoration: InputDecoration(
-//                 labelText: t('product_name'),
-//                 prefixIcon: Icon(Icons.shopping_cart),
-//               ),
-//               validator: (value) {
-//                 if (value == null || value.isEmpty) {
-//                   return t('required_field');
-//                 }
-//                 return null;
-//               },
-//             ),
-//             SizedBox(height: 16),
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: TextFormField(
-//                     controller: _quantityController,
-//                     decoration: InputDecoration(
-//                       labelText: t('quantity'),
-//                       prefixIcon: Icon(Icons.numbers),
-//                     ),
-//                     keyboardType: TextInputType.number,
-//                     validator: (value) {
-//                       if (value == null || value.isEmpty) {
-//                         return t('required_field');
-//                       }
-//                       return null;
-//                     },
-//                   ),
-//                 ),
-//                 SizedBox(width: 16),
-//                 Expanded(
-//                   child: TextFormField(
-//                     controller: _priceController,
-//                     decoration: InputDecoration(
-//                       labelText: t('price_per_unit'),
-//                       prefixIcon: Icon(Icons.currency_rupee),
-//                     ),
-//                     keyboardType: TextInputType.number,
-//                     validator: (value) {
-//                       if (value == null || value.isEmpty) {
-//                         return t('required_field');
-//                       }
-//                       return null;
-//                     },
-//                   ),
-//                 ),
-//               ],
-//             ),
-//
-//             SizedBox(height: 16),
-//
-//             // Product Image
-//             Card(
-//               child: Padding(
-//                 padding: EdgeInsets.all(16),
-//                 child: Column(
-//                   crossAxisAlignment: CrossAxisAlignment.start,
-//                   children: [
-//                     Text(
-//                       t('product_image'),
-//                       style: TextStyle(
-//                         fontSize: 14,
-//                         fontWeight: FontWeight.w600,
-//                         color: Colors.white,
-//                       ),
-//                     ),
-//                     SizedBox(height: 12),
-//                     if (_productImage != null)
-//                       Stack(
-//                         children: [
-//                           ClipRRect(
-//                             borderRadius: BorderRadius.circular(8),
-//                             child: Image.file(_productImage!, height: 200, width: double.infinity, fit: BoxFit.cover),
-//                           ),
-//                           Positioned(
-//                             top: 8,
-//                             right: 8,
-//                             child: IconButton(
-//                               icon: Icon(Icons.close, color: Colors.white),
-//                               onPressed: () {
-//                                 setState(() {
-//                                   _productImage = null;
-//                                 });
-//                               },
-//                             ),
-//                           ),
-//                         ],
-//                       ),
-//                     SizedBox(height: 12),
-//                     ElevatedButton.icon(
-//                       onPressed: _showImageSourceDialog,
-//                       icon: Icon(Icons.add_photo_alternate),
-//                       label: Text(_productImage == null
-//                           ? t('add_image')
-//                           : t('change_image')),
-//                       style: ElevatedButton.styleFrom(
-//                         minimumSize: Size(double.infinity, 48),
-//                       ),
-//                     ),
-//                   ],
-//                 ),
-//               ),
-//             ),
-//
-//             SizedBox(height: 24),
-//             Divider(color: Colors.grey[800]),
-//             SizedBox(height: 24),
-//
-//             // Payment Information Section
-//             Text(
-//               t('payment_info'),
-//               style: TextStyle(
-//                 fontSize: 18,
-//                 fontWeight: FontWeight.bold,
-//                 color: Colors.blue[300],
-//               ),
-//             ),
-//             SizedBox(height: 16),
-//             TextFormField(
-//               controller: _paidController,
-//               decoration: InputDecoration(
-//                 labelText: t('paid_amount'),
-//                 prefixIcon: Icon(Icons.payment),
-//               ),
-//               keyboardType: TextInputType.number,
-//               validator: (value) {
-//                 if (value == null || value.isEmpty) {
-//                   return t('required_field');
-//                 }
-//                 return null;
-//               },
-//             ),
-//             SizedBox(height: 16),
-//             DropdownButtonFormField<String>(
-//               value: _paymentMethod,
-//               decoration: InputDecoration(
-//                 labelText: t('payment_method'),
-//                 prefixIcon: Icon(Icons.account_balance_wallet),
-//               ),
-//               items: [
-//                 DropdownMenuItem(value: 'Cash', child: Text(t('cash'))),
-//                 DropdownMenuItem(value: 'Online', child: Text(t('online'))),
-//                 DropdownMenuItem(value: 'Cheque', child: Text(t('cheque'))),
-//               ],
-//               onChanged: (value) {
-//                 setState(() {
-//                   _paymentMethod = value!;
-//                 });
-//               },
-//             ),
-//             SizedBox(height: 16),
-//             TextFormField(
-//               controller: _notesController,
-//               decoration: InputDecoration(
-//                 labelText: t('notes'),
-//                 prefixIcon: Icon(Icons.note),
-//               ),
-//               maxLines: 3,
-//             ),
-//
-//             SizedBox(height: 32),
-//
-//             Row(
-//               children: [
-//                 Expanded(
-//                   child: OutlinedButton(
-//                     onPressed: () => Navigator.pop(context),
-//                     child: Text(t('cancel')),
-//                     style: OutlinedButton.styleFrom(
-//                       minimumSize: Size(0, 48),
-//                     ),
-//                   ),
-//                 ),
-//                 SizedBox(width: 16),
-//                 Expanded(
-//                   child: ElevatedButton(
-//                     onPressed: _saveSale,
-//                     child: Text(t('save')),
-//                     style: ElevatedButton.styleFrom(
-//                       minimumSize: Size(0, 48),
-//                     ),
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
-//
-// // Sale Detail Page (dark theme updated)
-// class SaleDetailPage extends StatelessWidget {
-//   final Sale sale;
-//   final Function(Sale) onUpdate;
-//   final Function(String) onDelete;
-//   final AppLanguage appLanguage;
-//
-//   SaleDetailPage({
-//     required this.sale,
-//     required this.onUpdate,
-//     required this.onDelete,
-//     required this.appLanguage,
-//   });
-//
-//   String t(String key) {
-//     return AppTranslations.translate(key, appLanguage.currentLanguage);
-//   }
-//
-//   void _showDeleteDialog(BuildContext context) {
-//     showDialog(
-//       context: context,
-//       builder: (context) => AlertDialog(
-//         backgroundColor: Color(0xFF1E1E1E),
-//         title: Text(t('delete_confirm')),
-//         content: Text(t('delete_message')),
-//         actions: [
-//           TextButton(
-//             onPressed: () => Navigator.pop(context),
-//             child: Text(t('no')),
-//           ),
-//           ElevatedButton(
-//             onPressed: () {
-//               onDelete(sale.id);
-//               Navigator.pop(context);
-//               Navigator.pop(context);
-//             },
-//             child: Text(t('yes')),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   void _showImageDialog(BuildContext context) {
-//     showDialog(
-//       context: context,
-//       builder: (context) => Dialog(
-//         backgroundColor: Color(0xFF1E1E1E),
-//         child: Column(
-//           mainAxisSize: MainAxisSize.min,
-//           children: [
-//             AppBar(
-//               title: Text(t('product_image')),
-//               leading: IconButton(
-//                 icon: Icon(Icons.close),
-//                 onPressed: () => Navigator.pop(context),
-//               ),
-//             ),
-//             Padding(
-//               padding: EdgeInsets.all(16),
-//               child: Image.file(File(sale.productImagePath!)),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text(t('sale_details')),
-//         actions: [
-//           IconButton(
-//             icon: Icon(Icons.edit),
-//             onPressed: () {
-//               Navigator.push(
-//                 context,
-//                 MaterialPageRoute(
-//                   builder: (context) => AddEditSalePage(
-//                     sale: sale,
-//                     onSave: onUpdate,
-//                     appLanguage: appLanguage,
-//                   ),
-//                 ),
-//               );
-//             },
-//           ),
-//           IconButton(
-//             icon: Icon(Icons.delete),
-//             onPressed: () => _showDeleteDialog(context),
-//           ),
-//         ],
-//       ),
-//       body: ListView(
-//         padding: EdgeInsets.all(16),
-//         children: [
-//           // Status Badge
-//           Center(
-//             child: Container(
-//               padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-//               decoration: BoxDecoration(
-//                 color: sale.status == 'paid' ? Colors.green[900] : Colors.orange[900],
-//                 borderRadius: BorderRadius.circular(24),
-//               ),
-//               child: Text(
-//                 sale.status == 'paid' ? t('paid') : t('pending'),
-//                 style: TextStyle(
-//                   color: sale.status == 'paid' ? Colors.green[300] : Colors.orange[300],
-//                   fontWeight: FontWeight.bold,
-//                   fontSize: 16,
-//                 ),
-//               ),
-//             ),
-//           ),
-//
-//           SizedBox(height: 24),
-//
-//           // Customer Information
-//           Card(
-//             child: Padding(
-//               padding: EdgeInsets.all(16),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     t('customer_info'),
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.blue[300],
-//                     ),
-//                   ),
-//                   SizedBox(height: 16),
-//                   _buildInfoRow(Icons.person, t('customer_name'), sale.customerName),
-//                   _buildInfoRow(Icons.store, t('shop_name'), sale.shopName),
-//                   _buildInfoRow(Icons.phone, t('phone'), sale.phone),
-//                   _buildInfoRow(Icons.location_on, t('address'), sale.address),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           SizedBox(height: 16),
-//
-//           // Product Information
-//           Card(
-//             child: Padding(
-//               padding: EdgeInsets.all(16),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     t('product_info'),
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.blue[300],
-//                     ),
-//                   ),
-//                   SizedBox(height: 16),
-//                   _buildInfoRow(Icons.shopping_cart, t('product_name'), sale.productName),
-//                   _buildInfoRow(Icons.numbers, t('quantity'), sale.quantity.toString()),
-//                   _buildInfoRow(Icons.currency_rupee, t('price_per_unit'), '₹${sale.pricePerUnit.toStringAsFixed(2)}'),
-//
-//                   if (sale.productImagePath != null) ...[
-//                     SizedBox(height: 16),
-//                     InkWell(
-//                       onTap: () => _showImageDialog(context),
-//                       child: ClipRRect(
-//                         borderRadius: BorderRadius.circular(8),
-//                         child: Image.file(
-//                           File(sale.productImagePath!),
-//                           height: 150,
-//                           width: double.infinity,
-//                           fit: BoxFit.cover,
-//                         ),
-//                       ),
-//                     ),
-//                     SizedBox(height: 8),
-//                     Center(
-//                       child: TextButton.icon(
-//                         onPressed: () => _showImageDialog(context),
-//                         icon: Icon(Icons.zoom_in),
-//                         label: Text(t('view_image')),
-//                       ),
-//                     ),
-//                   ],
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           SizedBox(height: 16),
-//
-//           // Payment Information
-//           Card(
-//             child: Padding(
-//               padding: EdgeInsets.all(16),
-//               child: Column(
-//                 crossAxisAlignment: CrossAxisAlignment.start,
-//                 children: [
-//                   Text(
-//                     t('payment_info'),
-//                     style: TextStyle(
-//                       fontSize: 18,
-//                       fontWeight: FontWeight.bold,
-//                       color: Colors.blue[300],
-//                     ),
-//                   ),
-//                   SizedBox(height: 16),
-//                   _buildAmountRow(t('total_amount'), sale.totalAmount, Colors.blue),
-//                   _buildAmountRow(t('paid_amount'), sale.paidAmount, Colors.green),
-//                   _buildAmountRow(t('pending_amount'), sale.pendingAmount, Colors.orange),
-//                   Divider(height: 24, color: Colors.grey[800]),
-//                   _buildInfoRow(Icons.account_balance_wallet, t('payment_method'), t(sale.paymentMethod.toLowerCase())),
-//                   _buildInfoRow(Icons.calendar_today, t('date'), DateFormat('dd MMM yyyy').format(sale.date)),
-//                   if (sale.notes.isNotEmpty)
-//                     _buildInfoRow(Icons.note, t('notes'), sale.notes),
-//                 ],
-//               ),
-//             ),
-//           ),
-//
-//           SizedBox(height: 24),
-//
-//           ElevatedButton.icon(
-//             onPressed: () {
-//               ScaffoldMessenger.of(context).showSnackBar(
-//                 SnackBar(content: Text('${t('download_slip')} - Feature coming soon!')),
-//               );
-//             },
-//             icon: Icon(Icons.download),
-//             label: Text(t('download_slip')),
-//             style: ElevatedButton.styleFrom(
-//               minimumSize: Size(double.infinity, 48),
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildInfoRow(IconData icon, String label, String value) {
-//     return Padding(
-//       padding: EdgeInsets.only(bottom: 12),
-//       child: Row(
-//         crossAxisAlignment: CrossAxisAlignment.start,
-//         children: [
-//           Icon(icon, size: 20, color: Colors.grey[400]),
-//           SizedBox(width: 12),
-//           Expanded(
-//             child: Column(
-//               crossAxisAlignment: CrossAxisAlignment.start,
-//               children: [
-//                 Text(
-//                   label,
-//                   style: TextStyle(
-//                     fontSize: 12,
-//                     color: Colors.grey[400],
-//                   ),
-//                 ),
-//                 SizedBox(height: 4),
-//                 Text(
-//                   value,
-//                   style: TextStyle(
-//                     fontSize: 15,
-//                     fontWeight: FontWeight.w500,
-//                     color: Colors.white,
-//                   ),
-//                 ),
-//               ],
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-//
-//   Widget _buildAmountRow(String label, double amount, Color color) {
-//     return Padding(
-//       padding: EdgeInsets.only(bottom: 12),
-//       child: Row(
-//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-//         children: [
-//           Text(
-//             label,
-//             style: TextStyle(
-//               fontSize: 14,
-//               color: Colors.grey[400],
-//             ),
-//           ),
-//           Text(
-//             '₹${amount.toStringAsFixed(2)}',
-//             style: TextStyle(
-//               fontSize: 18,
-//               fontWeight: FontWeight.bold,
-//               color: color,
-//             ),
-//           ),
-//         ],
-//       ),
-//     );
-//   }
-// }
-//
-// // History Page (kept as is, minor dark adjustments)
-// class HistoryPage extends StatelessWidget {
-//   final List<Sale> sales;
-//   final AppLanguage appLanguage;
-//
-//   HistoryPage({required this.sales, required this.appLanguage});
-//
-//   String t(String key) {
-//     return AppTranslations.translate(key, appLanguage.currentLanguage);
-//   }
-//
-//   @override
-//   Widget build(BuildContext context) {
-//     Map<String, List<Sale>> groupedSales = {};
-//
-//     for (var sale in sales) {
-//       String monthYear = DateFormat('MMMM yyyy').format(sale.date);
-//       if (!groupedSales.containsKey(monthYear)) {
-//         groupedSales[monthYear] = [];
-//       }
-//       groupedSales[monthYear]!.add(sale);
-//     }
-//
-//     return Scaffold(
-//       appBar: AppBar(
-//         title: Text(t('history')),
-//       ),
-//       body: ListView.builder(
-//         padding: EdgeInsets.all(16),
-//         itemCount: groupedSales.length,
-//         itemBuilder: (context, index) {
-//           String month = groupedSales.keys.elementAt(index);
-//           List<Sale> monthSales = groupedSales[month]!;
-//           double monthTotal = monthSales.fold(0, (sum, sale) => sum + sale.totalAmount);
-//
-//           return Card(
-//             margin: EdgeInsets.only(bottom: 16),
-//             child: ExpansionTile(
-//               title: Text(
-//                 month,
-//                 style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-//               ),
-//               subtitle: Text('${t('total_records')}: ${monthSales.length}'),
-//               trailing: Text(
-//                 '₹${monthTotal.toStringAsFixed(0)}',
-//                 style: TextStyle(
-//                   fontWeight: FontWeight.bold,
-//                   fontSize: 16,
-//                   color: Colors.blue[300],
-//                 ),
-//               ),
-//               children: monthSales.map((sale) {
-//                 return ListTile(
-//                   leading: CircleAvatar(
-//                     backgroundColor: sale.status == 'paid' ? Colors.green[900] : Colors.orange[900],
-//                     child: Icon(
-//                       Icons.shopping_bag,
-//                       color: sale.status == 'paid' ? Colors.green[300] : Colors.orange[300],
-//                     ),
-//                   ),
-//                   title: Text(sale.customerName, style: TextStyle(color: Colors.white)),
-//                   subtitle: Text('${sale.productName} - ${DateFormat('dd MMM').format(sale.date)}', style: TextStyle(color: Colors.grey[400])),
-//                   trailing: Column(
-//                     mainAxisAlignment: MainAxisAlignment.center,
-//                     crossAxisAlignment: CrossAxisAlignment.end,
-//                     children: [
-//                       Text(
-//                         '₹${sale.totalAmount.toStringAsFixed(0)}',
-//                         style: TextStyle(
-//                           fontWeight: FontWeight.bold,
-//                           color: Colors.white,
-//                         ),
-//                       ),
-//                       if (sale.pendingAmount > 0)
-//                         Text(
-//                           '₹${sale.pendingAmount.toStringAsFixed(0)} ${t('pending')}',
-//                           style: TextStyle(
-//                             fontSize: 11,
-//                             color: Colors.orange[300],
-//                           ),
-//                         ),
-//                     ],
-//                   ),
-//                 );
-//               }).toList(),
-//             ),
-//           );
-//         },
-//       ),
-//     );
-//   }
-// }
